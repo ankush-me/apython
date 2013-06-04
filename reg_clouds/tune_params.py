@@ -85,6 +85,7 @@ def test_plotlines():
     lines = gen_grid(identity, [0,0,0], [1,1,1])
     plotLines(lines)
 
+
 def test_plot3d():
     x  = np.linspace(0,1,101)
     yz = np.zeros([101,2])
@@ -98,29 +99,30 @@ def test_plot3d():
 
 #########################################
 
-FILE_NUM = 109
 
-data_dir  = '/home/ankush/sandbox/bulletsim/src/tests/ravens/recorded/'
+
+"""
+the .npz file saved by simulation has name: cloud_XXX.npz
+where XXX is a random number.
+"""
+FILE_NUM = 109
+data_dir    = '/home/ankush/sandbox/bulletsim/src/tests/ravens/recorded/'
 clouds_file = 'clouds_%d.npz'%FILE_NUM 
 fname = osp.join(data_dir, clouds_file)
 
-clouds = np.load(fname)
 
+"""
+the .npz file of point-clouds saved by simulation has source and target 
+clouds as following: 
+  src_0, src_1, ...
+  target_0, target_1, ...
+
+Hence, we can easily load separate them into source/ target clouds.
+"""
+clouds = np.load(fname)
 tclouds = [clouds[n] for n in clouds.files if n.startswith('target')]
 sclouds = [clouds[n] for n in clouds.files if n.startswith('src')]
 
-
-def rot_reg_works():
-    from np import sin,cos
-    from rapprentice import registration
-    import fastrapp
-    x = np.random.randn(100,3)
-    a = .1
-    R = np.array([[cos(a), sin(a),0],[-sin(a), cos(a), 0],[0,0,1]])
-    y = x.dot(R.T)
-    f = registration.fit_ThinPlateSpline_RotReg(x, y, bend_coef = .1, rot_coefs = [.1,.1,0], scale_coef = 1)
-    assert np.allclose(R.T, f.lin_ag, atol = 1e-4)
-#     
 
 def rot_reg(src, target):    
     f = registration.fit_ThinPlateSpline_RotReg(src, target, bend_coef = .1, rot_coefs = [.1,.1,0], scale_coef=1)
@@ -128,13 +130,12 @@ def rot_reg(src, target):
 
 
 # rot_reg(sclouds[0], tclouds[0])
-#test_plot3d()
-
-#mlab.show()
 
 test_plotlines()
 test_plot3d()
 
+
+#todo: implement tps-rpm/ see if john has already
 
 
 
