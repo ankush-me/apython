@@ -77,7 +77,6 @@ def easyInput(names, mins, maxes, res=None, appName='appName'):
     main interface function to the user.
     specify UNIQUE names, mins, maxes, res[olutions] and appName
     """
-    #thread_helper.queueCommand(runInThread, [names, mins, maxes, res, appName])
     qt_thread = threading.Thread(target=runInThread, args=[names, mins, maxes, res, appName], name="pyqt_thread")
     qt_thread.start()
 
