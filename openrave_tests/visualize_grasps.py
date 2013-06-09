@@ -27,7 +27,7 @@ def plot_transform(T, s=0.1):
     return h
 
 
-def visualize(rave_pr2, target, rl='l', exclude_angle=91):
+def visualize(rave_pr2, target, rl='l', exclude_angle=53):
     """
     Visualizes the grasps found by openrave
     and filters vertical grasps :
