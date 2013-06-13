@@ -7,15 +7,14 @@ import time
 from mayavi import mlab
 
 
-def gen_grid(f, mins, maxes, xres = .01, yres = .01, zres = .01):
+def gen_grid(f, mins, maxes, ncoarse=10, nfine=30):
     """
     generate 3d grid and warps it using the function f.
+    
+    The grid is based on the number of lines (ncoarse & nfine).
     """    
     xmin, ymin, zmin = mins
     xmax, ymax, zmax = maxes
-
-    nfine = 30
-    ncoarse = 10
 
     xcoarse = np.linspace(xmin, xmax, ncoarse)
     ycoarse = np.linspace(ymin, ymax, ncoarse)
@@ -54,17 +53,79 @@ def gen_grid(f, mins, maxes, xres = .01, yres = .01, zres = .01):
     return lines
 
 
-def plot_lines(lines):
+def gen_grid2(f, mins, maxes, xres = .01, yres = .01, zres = .01):
     """
-    input  : a list of m matrices of shape nx3
-             each list is interpreted as one line
+    generate 3d grid and warps it using the function f.
+    
+    The grid is based on the resolution specified.
+    
+    """    
+    xmin, ymin, zmin = mins
+    xmax, ymax, zmax = maxes
+
+    xcoarse = np.arange(xmin, xmax+xres/10., xres)
+    ycoarse = np.arange(ymin, ymax+yres/10., yres)
+    zcoarse = np.arange(zmin, zmax+zres/10., zres)
+    
+    
+    xfine = np.arange(xmin, xmax+xres/10., xres/5.)
+    yfine = np.arange(ymin, ymax+yres/10., yres/5.)
+    zfine = np.arange(zmin, zmax+zres/10., zres/5.)
+
+ 
+    
+    lines = []
+    if len(zcoarse) > 1:    
+        for x in xcoarse:
+            for y in ycoarse:
+                xyz = np.zeros((len(zfine), 3))
+                xyz[:,0] = x
+                xyz[:,1] = y
+                xyz[:,2] = zfine
+                lines.append(f(xyz))
+
+    for y in ycoarse:
+        for z in zcoarse:
+            xyz = np.zeros((len(xfine), 3))
+            xyz[:,0] = xfine
+            xyz[:,1] = y
+            xyz[:,2] = z
+            lines.append(f(xyz))
+        
+    for z in zcoarse:
+        for x in xcoarse:
+            xyz = np.zeros((len(yfine), 3))
+            xyz[:,0] = x
+            xyz[:,1] = yfine
+            xyz[:,2] = z
+            lines.append(f(xyz))
+
+    return lines
+
+
+
+
+def plot_lines(lines, color=(1,1,1), line_width=1, opacity=0.4):
+    """
+    input  :
+    
+      - lines :  a list of m matrices of shape nx3
+                 each list is interpreted as one line
+                 
+      - color : (r,g,b) values for the lines
+      - line_width : width of the lines
+      - opacity    : opacity of the lines
+
+             
     output : plot each line in mayavi
     
     adapted from : http://docs.enthought.com/mayavi/mayavi/auto/example_plotting_many_lines.html
     
     call
     mlab.show() to actually display the grid, after this function returns
-    """    
+    """
+    
+    
     Ns   = np.cumsum(np.array([l.shape[0] for l in lines]))
     Ntot = Ns[-1]
     Ns   = Ns[:-1]-1
@@ -78,11 +139,16 @@ def plot_lines(lines):
     src = mlab.pipeline.scalar_scatter(pts[:,0], pts[:,1], pts[:,2], s)
     src.mlab_source.dataset.lines = connects
     lines = mlab.pipeline.stripper(src)
-    
+
     # Finally, display the set of lines
-    mlab.pipeline.surface(lines, colormap='Accent', line_width=1, opacity=.4)
-
-
+    surf = mlab.pipeline.surface(lines, line_width=line_width, opacity=opacity)
+    
+    # set the color of the lines
+    r,g,b = color
+    color = 255*np.array((r,g,b, 1))
+    surf.module_manager.scalar_lut_manager.lut.table = np.array([color, color])
+    
+    
 
 def test_plotlines():
     def identity(xyz):
@@ -129,25 +195,34 @@ def load_clouds(file_num=109):
 
 
 def test_tps_rpm(src_cloud, target_cloud):
+    """
+    draw_plinks : draws a line b/w each point in the source-cloud and its transformed location.
+    """
+
     print colorize("Fitting tps-rpm ...", 'yellow')
-    f = registration.fit_ThinPlateSpline_RotReg(src_cloud, target_cloud, bend_coef = 0.05, rot_coefs = [.1,.1,0], scale_coef=1)
-    f = registration.tps_rpm(src_cloud, target_cloud, f_init=None, n_iter=1000, rad_init=.05, rad_final=0.0001, reg_init=10, reg_final=0.01)
-    #f = registration.tps_rpm_rot_reg(src_cloud, target_cloud, n_iter=100, rad_init=.50, rad_final=0.001, reg_init=10, reg_final=0.00001)
+    #f = registration.fit_ThinPlateSpline_RotReg(src_cloud, target_cloud, bend_coef = 0.05, rot_coefs = [.1,.1,0], scale_coef=1)
+    #f = registration.tps_rpm(src_cloud, target_cloud, f_init=None, n_iter=1000, rad_init=.05, rad_final=0.0001, reg_init=10, reg_final=0.01)
     
+    f, info = registration.tps_rpm_regrot(src_cloud, target_cloud, n_iter=5,
+                                    rad_init=0.3, rad_final=0.001, bend_init=10, bend_final=0.00001,
+                                    return_full=True)
+
     print colorize("Plotting grid ...", 'yellow')
     mean = np.mean(src_cloud, axis=0)
     print '\tmean : ', mean
     print '\tmins : ', np.min(src_cloud, axis=0)
     print '\tmaxes : ', np.max(src_cloud, axis=0)
 
-    mins  = mean + [-0.03, -0.03, 0]
-    maxes = mean + [0.03, 0.03, 0.01]
-    lines = gen_grid(f.transform_points, mins=mins, maxes=maxes)
-    plot_lines(lines)
+    mins  = mean + [-0.1, -0.1, 0]
+    maxes = mean + [0.1, 0.1, 0.01]
+    #lines = gen_grid2(f.transform_points, mins=mins, maxes=maxes, xres=0.001, yres=0.001, zres=0.002)
+    lines = gen_grid(f.transform_points, mins=mins, maxes=maxes)    
+    plot_lines(lines, color=(0,0.5,0))
+        
     return f
 
 
-def fit_and_plot(file_num):
+def fit_and_plot(file_num, draw_plinks=True):
     """
     does tps-rpm on first pair of clouds in file_num .npz file and then plots the grid and src and target clouds.
     src cloud     : red
@@ -164,13 +239,17 @@ def fit_and_plot(file_num):
     #bias = [0.1, 0, 0]
     #tc += bias
     
-    
     f = test_tps_rpm(sc, tc)
     warped = f.transform_points(sc)
 
     mlab.points3d(sc[:,0], sc[:,1], sc[:,2], color=(1,0,0), scale_factor=0.001)
     mlab.points3d(tc[:,0], tc[:,1], tc[:,2], color=(0,0,1), scale_factor=0.001)
     mlab.points3d(warped[:,0], warped[:,1], warped[:,2], color=(0,1,0), scale_factor=0.001)
+        
+    if draw_plinks:
+        plinks = [np.c_[ps, pw].T for ps,pw in zip(sc, warped)]
+        plot_lines(plinks, color=(0.5,0,0), line_width=2, opacity=1)
+        
     
     mlab.show()
     

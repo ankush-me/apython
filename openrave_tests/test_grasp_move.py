@@ -15,7 +15,7 @@ def move_pr2(rave_pr2, traj, rl):
     """
     Basically, the PlannerPR2 object is the one which moves the real PR2.
     This function basically caches the object, hence you are not required to use this
-    if you keep arounf the PR2Planner object.
+    if you keep around the PR2Planner object.
     """
     
     global PR2

@@ -11,11 +11,12 @@ global env
 PR2 = None
 env = None
 
-global handles
-handles = []
-
 
 def plot_transform(T, s=0.1):
+    """
+    Plots transform T in openrave environment.
+    S is the length of the axis markers.
+    """
     h = []
     x = T[0:3,0]
     y = T[0:3,1]
@@ -25,6 +26,7 @@ def plot_transform(T, s=0.1):
     h.append(env.drawlinestrip(points=np.array([o, o+s*y]), linewidth=3.0, colors=np.array(((0,1,0),(0,1,0)))))
     h.append(env.drawlinestrip(points=np.array([o, o+s*z]), linewidth=3.0, colors=np.array(((0,0,1),(0,0,1)))))
     return h
+
 
 
 def visualize(rave_pr2, target, rl='l', exclude_angle=53):
@@ -41,7 +43,7 @@ def visualize(rave_pr2, target, rl='l', exclude_angle=53):
         \  |  /
          \ | / 
           \|/
-   accept /|\ accepted
+   accept /|\ accept
          / | \
         /  |  \
     """
