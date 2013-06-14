@@ -248,15 +248,15 @@ def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
 
     f, info = registration.tps_rpm_regrot_multi(src_cloud, target_cloud,
                                     n_iter=100,
-                                    n_iter_powell_init=10, n_iter_powell_final=10,
+                                    n_iter_powell_init=100, n_iter_powell_final=100,
                                     rad_init=0.3, rad_final=0.0001, 
                                     bend_init=10, bend_final=0.00001,
-                                    scale_init=1, scale_final=0.0001,
+                                    #scale_init=1, scale_final=0.0000001,
+                                    scale_init=10, scale_final=0.001,
                                     return_full=True,
                                     plotting_cb=plot_cb)
     
     plot_warping(f.transform_points,np.concatenate(src_cloud), np.concatenate(target_cloud), fine)
-
 
     return f
 
