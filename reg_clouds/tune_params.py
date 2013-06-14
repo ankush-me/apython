@@ -194,65 +194,73 @@ def load_clouds(file_num=109):
     return (sclouds, tclouds)
 
 
-def test_tps_rpm(src_cloud, target_cloud):
-    """
-    draw_plinks : draws a line b/w each point in the source-cloud and its transformed location.
-    """
 
-    print colorize("Fitting tps-rpm ...", 'yellow')
+def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
+    """
+    FINE: set to TRUE if you want to plot a very fine grid.
+    """
+    
+    print colorize("Fitting tps-rpm ...", 'green', True)
     #f = registration.fit_ThinPlateSpline_RotReg(src_cloud, target_cloud, bend_coef = 0.05, rot_coefs = [.1,.1,0], scale_coef=1)
     #f = registration.tps_rpm(src_cloud, target_cloud, f_init=None, n_iter=1000, rad_init=.05, rad_final=0.0001, reg_init=10, reg_final=0.01)
-    
-    f, info = registration.tps_rpm_regrot(src_cloud, target_cloud, n_iter=5,
-                                    rad_init=0.3, rad_final=0.001, bend_init=10, bend_final=0.00001,
+
+    f, info = registration.tps_rpm_regrot_multi(src_cloud, target_cloud, n_iter=50,
+                                    rad_init=0.3, rad_final=0.0001, 
+                                    bend_init=10, bend_final=0.00001,
+                                    scale_init=1, scale_final=0.0001,
                                     return_full=True)
 
     print colorize("Plotting grid ...", 'yellow')
-    mean = np.mean(src_cloud, axis=0)
-    print '\tmean : ', mean
-    print '\tmins : ', np.min(src_cloud, axis=0)
-    print '\tmaxes : ', np.max(src_cloud, axis=0)
+    mean = np.mean(np.concatenate(src_cloud), axis=0)
 
-    mins  = mean + [-0.1, -0.1, 0]
-    maxes = mean + [0.1, 0.1, 0.01]
-    #lines = gen_grid2(f.transform_points, mins=mins, maxes=maxes, xres=0.001, yres=0.001, zres=0.002)
-    lines = gen_grid(f.transform_points, mins=mins, maxes=maxes)    
-    plot_lines(lines, color=(0,0.5,0))
-        
+    print '\tmean : ', mean
+    print '\tmins : ', np.min(np.concatenate(src_cloud), axis=0)
+    print '\tmaxes : ', np.max(np.concatenate(src_cloud), axis=0)
+
+    mins  = mean + [-0.2, -0.2, 0]
+    maxes = mean + [0.2, 0.2, 0.01]
+
+    lines = []
+    if fine:
+        lines = gen_grid2(f.transform_points, mins=mins, maxes=maxes, xres=0.005, yres=0.005, zres=0.002)
+    else:
+        lines = gen_grid(f.transform_points, mins=mins, maxes=maxes)
+
+    plot_lines(lines, color=(0,0.5,0.3))
+
     return f
 
 
-def fit_and_plot(file_num, draw_plinks=True):
+def fit_and_plot(file_num, draw_plinks=True, fine=False):
     """
+    params:
+      - draw_plinks [bool] : draws a line b/w each point in the source-cloud and its transformed location.
+
     does tps-rpm on first pair of clouds in file_num .npz file and then plots the grid and src and target clouds.
     src cloud     : red
     target clouds : blue
     warped (src---> target) : green
     """
-   
-    # source clouds
+
     (sc, tc) = load_clouds(file_num)
+    f = test_tps_rpm_regrot_multi(sc, tc, fine=fine)
+
+    # plot the points    
     sc = np.concatenate(sc)
-
-    # target clouds
     tc = np.concatenate(tc)
-    #bias = [0.1, 0, 0]
-    #tc += bias
-    
-    f = test_tps_rpm(sc, tc)
-    warped = f.transform_points(sc)
 
+    warped = f.transform_points(sc)
     mlab.points3d(sc[:,0], sc[:,1], sc[:,2], color=(1,0,0), scale_factor=0.001)
     mlab.points3d(tc[:,0], tc[:,1], tc[:,2], color=(0,0,1), scale_factor=0.001)
     mlab.points3d(warped[:,0], warped[:,1], warped[:,2], color=(0,1,0), scale_factor=0.001)
-        
+
     if draw_plinks:
         plinks = [np.c_[ps, pw].T for ps,pw in zip(sc, warped)]
         plot_lines(plinks, color=(0.5,0,0), line_width=2, opacity=1)
-        
-    
+
     mlab.show()
     
+
 
 def rot_reg(src, target):    
     f = registration.fit_ThinPlateSpline_RotReg(src, target, bend_coef = .1, rot_coefs = [.1,.1,0], scale_coef=1)
