@@ -186,7 +186,7 @@ def load_clouds(file_num=109):
       src_0, src_1, ...
       target_0, target_1, ...
     
-    Hence, we can easily load separate them into source/ target clouds.
+    Hence, we can easily load and separate them into source/ target clouds.
     """
     clouds = np.load(fname)
     tclouds = [clouds[n] for n in clouds.files if n.startswith('target')]
@@ -195,38 +195,68 @@ def load_clouds(file_num=109):
 
 
 
-def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
-    """
-    FINE: set to TRUE if you want to plot a very fine grid.
-    """
-    
-    print colorize("Fitting tps-rpm ...", 'green', True)
-    #f = registration.fit_ThinPlateSpline_RotReg(src_cloud, target_cloud, bend_coef = 0.05, rot_coefs = [.1,.1,0], scale_coef=1)
-    #f = registration.tps_rpm(src_cloud, target_cloud, f_init=None, n_iter=1000, rad_init=.05, rad_final=0.0001, reg_init=10, reg_final=0.01)
 
-    f, info = registration.tps_rpm_regrot_multi(src_cloud, target_cloud, n_iter=50,
-                                    rad_init=0.3, rad_final=0.0001, 
-                                    bend_init=10, bend_final=0.00001,
-                                    scale_init=1, scale_final=0.0001,
-                                    return_full=True)
-
-    print colorize("Plotting grid ...", 'yellow')
-    mean = np.mean(np.concatenate(src_cloud), axis=0)
+def plot_warping(f, src, target, fine=True, draw_plinks=True):
+    """
+    function to plot the warping as defined by the function f.
+    src : nx3 array
+    target : nx3 array
+    fine   : if fine grid else coarse grid.
+    """
+    print colorize("Plotting grid ...", 'blue', True)
+    mean = np.mean(src, axis=0)
 
     print '\tmean : ', mean
-    print '\tmins : ', np.min(np.concatenate(src_cloud), axis=0)
-    print '\tmaxes : ', np.max(np.concatenate(src_cloud), axis=0)
+    print '\tmins : ', np.min(src, axis=0)
+    print '\tmaxes : ', np.max(src, axis=0)
 
     mins  = mean + [-0.2, -0.2, 0]
     maxes = mean + [0.2, 0.2, 0.01]
 
     lines = []
     if fine:
-        lines = gen_grid2(f.transform_points, mins=mins, maxes=maxes, xres=0.005, yres=0.005, zres=0.002)
+        lines = gen_grid2(f, mins=mins, maxes=maxes, xres=0.005, yres=0.005, zres=0.002)
     else:
-        lines = gen_grid(f.transform_points, mins=mins, maxes=maxes)
+        lines = gen_grid(f, mins=mins, maxes=maxes)
 
     plot_lines(lines, color=(0,0.5,0.3))
+
+    warped = f(src)
+    mlab.points3d(src[:,0], src[:,1], src[:,2], color=(1,0,0), scale_factor=0.001)
+    mlab.points3d(target[:,0], target[:,1], target[:,2], color=(0,0,1), scale_factor=0.001)
+    mlab.points3d(warped[:,0], warped[:,1], warped[:,2], color=(0,1,0), scale_factor=0.001)
+
+    if draw_plinks:
+        plinks = [np.c_[ps, pw].T for ps,pw in zip(src, warped)]
+        plot_lines(plinks, color=(0.5,0,0), line_width=2, opacity=1)
+
+    mlab.show()
+    #mlab.view(0,0)
+    #mlab.figure(figure=mlab.gcf(), size=(1024,1024))
+
+
+def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
+    """
+    FINE: set to TRUE if you want to plot a very fine grid.
+    """
+    print colorize("Fitting tps-rpm ...", 'green', True)
+    #f = registration.fit_ThinPlateSpline_RotReg(src_cloud, target_cloud, bend_coef = 0.05, rot_coefs = [.1,.1,0], scale_coef=1)
+    #f = registration.tps_rpm(src_cloud, target_cloud, f_init=None, n_iter=1000, rad_init=.05, rad_final=0.0001, reg_init=10, reg_final=0.01)
+
+    def plot_cb(f):
+        pass#plot_warping(f.transform_points,np.concatenate(src_cloud), np.concatenate(target_cloud), fine)
+
+    f, info = registration.tps_rpm_regrot_multi(src_cloud, target_cloud,
+                                    n_iter=100,
+                                    n_iter_powell_init=10, n_iter_powell_final=10,
+                                    rad_init=0.3, rad_final=0.0001, 
+                                    bend_init=10, bend_final=0.00001,
+                                    scale_init=1, scale_final=0.0001,
+                                    return_full=True,
+                                    plotting_cb=plot_cb)
+    
+    plot_warping(f.transform_points,np.concatenate(src_cloud), np.concatenate(target_cloud), fine)
+
 
     return f
 
@@ -241,25 +271,8 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False):
     target clouds : blue
     warped (src---> target) : green
     """
-
     (sc, tc) = load_clouds(file_num)
-    f = test_tps_rpm_regrot_multi(sc, tc, fine=fine)
-
-    # plot the points    
-    sc = np.concatenate(sc)
-    tc = np.concatenate(tc)
-
-    warped = f.transform_points(sc)
-    mlab.points3d(sc[:,0], sc[:,1], sc[:,2], color=(1,0,0), scale_factor=0.001)
-    mlab.points3d(tc[:,0], tc[:,1], tc[:,2], color=(0,0,1), scale_factor=0.001)
-    mlab.points3d(warped[:,0], warped[:,1], warped[:,2], color=(0,1,0), scale_factor=0.001)
-
-    if draw_plinks:
-        plinks = [np.c_[ps, pw].T for ps,pw in zip(sc, warped)]
-        plot_lines(plinks, color=(0.5,0,0), line_width=2, opacity=1)
-
-    mlab.show()
-    
+    test_tps_rpm_regrot_multi(sc, tc, fine=fine)
 
 
 def rot_reg(src, target):    
