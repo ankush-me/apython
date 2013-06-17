@@ -54,7 +54,7 @@ class Plotter():
 
     def plot_points(self, plot_request):
         d  = plot_request['data']
-        mlab.points3d(d[:,0], d[:,1], d[:,2], color=plot_request['color'], scale_factor=plot_request['scale'])
+        mlab.points3d(d[:,0], d[:,1], d[:,2], figure=mlab.gcf(), color=plot_request['color'], scale_factor=plot_request['scale'])
 
     def plot_lines(self, req):
         pass
