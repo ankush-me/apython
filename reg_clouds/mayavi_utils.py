@@ -1,6 +1,8 @@
 import numpy as np
 from mayavi import mlab
 
+
+
 def plot_lines(lines, color=(1,1,1), line_width=1, opacity=0.4):
     """
     input  :
@@ -20,8 +22,7 @@ def plot_lines(lines, color=(1,1,1), line_width=1, opacity=0.4):
     call
     mlab.show() to actually display the grid, after this function returns
     """
-    
-    
+
     Ns   = np.cumsum(np.array([l.shape[0] for l in lines]))
     Ntot = Ns[-1]
     Ns   = Ns[:-1]-1
@@ -30,7 +31,7 @@ def plot_lines(lines, color=(1,1,1), line_width=1, opacity=0.4):
     
     pts = np.vstack(lines)
     s   = np.ones(pts.shape[0])
-    
+
     # Create the points
     src = mlab.pipeline.scalar_scatter(pts[:,0], pts[:,1], pts[:,2], s)
     src.mlab_source.dataset.lines = connects

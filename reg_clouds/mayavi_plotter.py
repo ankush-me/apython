@@ -10,7 +10,7 @@ import time
 
 def gen_custom_request(func_name, **kwargs):
     """
-    Returns a plotting request to custom functions.
+    Returns a plotting request for custom functions.
     func_name should be in : {'points', 'lines'}
     """
     req = {'type':'custom', 'func':func_name, 'data':kwargs}
@@ -19,8 +19,7 @@ def gen_custom_request(func_name, **kwargs):
 
 def gen_mlab_request(func, *args, **kwargs):
     """"
-    Pickles a call to a function of mlab and returns the pickled
-    object. This object can be sent to the Mayavi process using pipes.   
+    Returns a plotting request for mlab function calls.
     """
     req = {'type':'mlab', 'func':gen_mlab_request.func_to_str[func], 'data':(args, kwargs)}
     return  cPickle.dumps(req)
@@ -35,7 +34,7 @@ class Plotter():
     A mayavi figure is created in a separate process and
     a timer is started in that same process.
    
-    The timer periodically poll the check_and_process function
+    The timer periodically polls the check_and_process function
     which checks if any plotting request was sent to the process.
     If a request is found, the request is handled.
     """
@@ -46,17 +45,25 @@ class Plotter():
     def check_and_process(self):
         if self.request_pipe.poll():
             plot_request = self.request_pipe.recv()
-            self.process_request(cPickle.loads(plot_request))
+            if plot_request:
+                self.process_request(cPickle.loads(plot_request))
 
     def process_request(self, req):
         if req['type'] == 'custom':
-            f = self.plotting_funcs[req['func']]
-            kwargs = req['data']
-            f(**kwargs)
-        else:
-            f = getattr(mlab, req['func'])
-            args, kwargs = req['data']
-            f(*args, **kwargs)
+            try:
+                f = self.plotting_funcs[req['func']]
+                kwargs = req['data']
+                f(**kwargs)
+            except KeyError:
+                print colorize("No custom plotting function with name : %s. Ignoring plot request."%req['func'], "red")
+
+        elif req['type'] == 'mlab':
+            try:
+                f = getattr(mlab, req['func'])
+                args, kwargs = req['data']
+                f(*args, **kwargs)
+            except KeyError:
+                print colorize("No mlab plotting function with name : %s. Ignoring plot request."%req['func'], "red")
 
 
 @mlab.show
@@ -80,7 +87,7 @@ class PlotterInit(object):
     def __init__(self):
         self.mayavi_process  = None
         (self.pipe_to_mayavi, self.pipe_from_mayavi) = Pipe()
-  
+
         self.mayavi_process = Process(target=create_mayavi, args=(self.pipe_from_mayavi,))
         self.mayavi_process.start()
 
@@ -100,14 +107,15 @@ if __name__=='__main__':
 
         if parity:
             # example of a custom request to the plotter
-            N = 3
-            line_points = [np.random.randn(4,3) for i in xrange(N)]
+            N = 5 # plot 5 sets of lines.
+            line_points = [np.random.randn(2,3) for i in xrange(N)]
             req  = gen_custom_request('lines', lines=line_points, color=color, line_width=1, opacity=1)
+            p.request(req)
         else:
             # example of how to request a mlab function to the plotter
             data  = np.random.randn(5,3)
             req   =  gen_mlab_request(mlab.points3d, data[:,0], data[:,1], data[:,2], color=color)
+            p.request(req)
 
         parity = not parity
-        p.request(req)
         time.sleep(1)   
