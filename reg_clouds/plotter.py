@@ -1,31 +1,30 @@
 import numpy as np
-from mayavi import mlab
-import threading 
-import time
+import mayavi_utils
 from rapprentice.colorize import *
-
+from mayavi import mlab
 from multiprocessing import Process,Pipe
-from mayavi.plugins.app import main
+import cPickle
+import time
 
-import pickle
 
 
-class PlotRequest():
+def gen_custom_request(func_name, **kwargs):
     """
-    Creates a plot request for mayavi.
-    Sort of like a ros-message.
-    
-    request_type : a string. Can be in {'points', 'lines'}
+    Returns a plotting request to custom functions.
+    func_name should be in : {'points', 'lines'}
     """
-    def __init__(self, data, request_type='points', color=(1,0,0), scale_factor=1):
-        assert isinstance(data, np.ndarray), colorize("Plot request data-type invalid", "red", True)
-        assert data.shape[1]==3, colorize("Plot data incorrect dimension", "red", True)
+    req = {'type':'custom', 'func':func_name, 'data':kwargs}
+    return cPickle.dumps(req)
 
-        self.request = {}
-        self.request['type']  = request_type
-        self.request['color'] = color
-        self.request['scale'] = scale_factor
-        self.request['data']  = data 
+
+def gen_mlab_request(func, *args, **kwargs):
+    """"
+    Pickles a call to a function of mlab and returns the pickled
+    object. This object can be sent to the Mayavi process using pipes.   
+    """
+    req = {'type':'mlab', 'func':gen_mlab_request.func_to_str[func], 'data':(args, kwargs)}
+    return  cPickle.dumps(req)
+gen_mlab_request.func_to_str = {v:k for k,v in mlab.__dict__.iteritems() if not k.startswith('_')}
 
 
 class Plotter():
@@ -42,22 +41,22 @@ class Plotter():
     """
     def __init__(self, in_pipe):
         self.request_pipe  = in_pipe
-        self.plotting_funcs = {'points': self.plot_points, 'lines':self.plot_lines}
+        self.plotting_funcs = {'lines': mayavi_utils.plot_lines}
 
     def check_and_process(self):
         if self.request_pipe.poll():
             plot_request = self.request_pipe.recv()
-            self.process_request(pickle.loads(plot_request))
+            self.process_request(cPickle.loads(plot_request))
 
     def process_request(self, req):
-        self.plotting_funcs[req['type']](req)
-
-    def plot_points(self, plot_request):
-        d  = plot_request['data']
-        mlab.points3d(d[:,0], d[:,1], d[:,2], figure=mlab.gcf(), color=plot_request['color'], scale_factor=plot_request['scale'])
-
-    def plot_lines(self, req):
-        pass
+        if req['type'] == 'custom':
+            f = self.plotting_funcs[req['func']]
+            kwargs = req['data']
+            f(**kwargs)
+        else:
+            f = getattr(mlab, req['func'])
+            args, kwargs = req['data']
+            f(*args, **kwargs)
 
 
 @mlab.show
@@ -73,13 +72,11 @@ def create_mayavi(pipe):
     timer = Timer(50, mayavi_app.check_and_process) 
     mayavi2.savedtimerbug = timer
 
-    
 
 class PlotterInit(object):
     """
     Initializes Mayavi in a new process.
     """
-
     def __init__(self):
         self.mayavi_process  = None
         (self.pipe_to_mayavi, self.pipe_from_mayavi) = Pipe()
@@ -87,27 +84,30 @@ class PlotterInit(object):
         self.mayavi_process = Process(target=create_mayavi, args=(self.pipe_from_mayavi,))
         self.mayavi_process.start()
 
-
-    def terminate(self):
-        try:
-            self.mayavi_process.terminate()
-        except:
-            pass
-
     def request(self, plot_request):
-        assert isinstance(plot_request, PlotRequest), colorize("Plot request-type invalid.", "red", True)
-        self.pipe_to_mayavi.send(pickle.dumps(plot_request.request))
+        self.pipe_to_mayavi.send(plot_request)
 
-
-def gen_request():
-    data = np.random.randn(5,3)
-    color =  tuple(np.random.rand(1,3).tolist()[0])
-    return PlotRequest(data, request_type='points', color=color)
-    
 
 if __name__=='__main__':
+
     # example usage below:
     p = PlotterInit()
+    parity = False
+
     while True:
-        p.request(gen_request())
+        req = None
+        color =  tuple(np.random.rand(1,3).tolist()[0])
+
+        if parity:
+            # example of a custom request to the plotter
+            N = 3
+            line_points = [np.random.randn(4,3) for i in xrange(N)]
+            req  = gen_custom_request('lines', lines=line_points, color=color, line_width=1, opacity=1)
+        else:
+            # example of how to request a mlab function to the plotter
+            data  = np.random.randn(5,3)
+            req   =  gen_mlab_request(mlab.points3d, data[:,0], data[:,1], data[:,2], color=color)
+
+        parity = not parity
+        p.request(req)
         time.sleep(1)   
