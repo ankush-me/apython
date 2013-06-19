@@ -13,7 +13,6 @@ from mayavi_plotter import *
 def gen_grid(f, mins, maxes, ncoarse=10, nfine=30):
     """
     generate 3d grid and warps it using the function f.
-    
     The grid is based on the number of lines (ncoarse & nfine).
     """    
     xmin, ymin, zmin = mins
@@ -215,24 +214,18 @@ def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coo
             x_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
         for i,c in enumerate(target_clouds):
             y_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-#         for c in src_clouds:
-#             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-#         for c in target_clouds:
-#             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
 
 
-
-    
     f, info = registration.tps_rpm_regrot_multi(src_clouds, target_clouds,
                                     x_aug=x_aug, y_aug=y_aug,
                                     n_iter=15,
                                     n_iter_powell_init=50, n_iter_powell_final=50,
-                                    rad_init=0.3, rad_final=0.0001, 
+                                    rad_init=0.3, rad_final=0.0001, # if testing for box-holes points, rad_final=0.00001
                                     bend_init=10, bend_final=0.00001,
                                     rot_init = (0.01,0.01,0.0025), rot_final=(0.00001,0.00001,0.0000025),
                                     scale_init=10, scale_final=0.0000001,
                                     return_full=True,
-                                    plotting_cb=plot_cb)
+                                    plotting_cb=plot_cb, plotter=plotter)
 
     
     plot_requests = plot_warping(f.transform_points,np.concatenate(src_clouds), np.concatenate(target_clouds), fine)
@@ -260,6 +253,3 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False, augment_coords=False):
 def rot_reg(src, target):    
     f = registration.fit_ThinPlateSpline_RotReg(src, target, bend_coef = .1, rot_coefs = [.1,.1,0], scale_coef=1)
     print colorize("Linear part of the warping function is:\n", "blue"), f.lin_ag
-
-
-#todo: implement tps-rpm/ see if john has already
