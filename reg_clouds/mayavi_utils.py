@@ -9,7 +9,6 @@ def plot_lines(lines, color=(1,1,1), line_width=1, opacity=0.4):
     
       - lines :  a LIST of m matrices of shape n_ix3
                  each matrix is interpreted as one line
-
       - color : (r,g,b) values for the lines
       - line_width : width of the lines
       - opacity    : opacity of the lines
@@ -37,10 +36,9 @@ def plot_lines(lines, color=(1,1,1), line_width=1, opacity=0.4):
     src.mlab_source.dataset.lines = connects
     lines = mlab.pipeline.stripper(src)
 
-    # Finally, display the set of lines                time.sleep(0.01)
-
+    # Finally, display the set of lines
     surf = mlab.pipeline.surface(lines, line_width=line_width, opacity=opacity)
-    
+
     # set the color of the lines
     r,g,b = color
     color = 255*np.array((r,g,b, 1))

@@ -5,11 +5,10 @@ import openravepy as rave
 import numpy as np
 import numpy.linalg as la
 
-global PR2
-global env
 
 PR2 = None
 env = None
+handles = []
 
 
 def plot_transform(T, s=0.1):
@@ -68,6 +67,11 @@ def visualize(rave_pr2, target, rl='l', exclude_angle=53):
 
         # filter vertical grasps
         goal_tfm    = gmodel.getGlobalGraspTransform(grasp,collisionfree=True)
+        lT          = gmodel.GetLocalGraspTransform(grasp,collisionfree=True)
+        
+        print lT[0:3,3]
+        
+        
         zz = goal_tfm[2,2]
         if abs(zz) >= d_thresh: 
             print "vertical grasp ... ignoring"
@@ -80,11 +84,12 @@ def visualize(rave_pr2, target, rl='l', exclude_angle=53):
         
 
 if __name__=="__main__":
-    global env
     env = rave.Environment()
     env.Load('data/pr2test1.env.xml')
     env.SetViewer('qtcoin')
     rave_pr2 = env.GetRobots()[0]
     target = env.GetKinBody('mug1')
+    mT     = target.GetTransform()
+    handles.append(plot_transform(mT, s=0.5))
     visualize(rave_pr2, target)
     

@@ -104,8 +104,6 @@ def gen_grid2(f, mins, maxes, xres = .01, yres = .01, zres = .01):
     return lines
 
 
-
-
 def test_plotlines():
     def identity(xyz):
         return xyz
@@ -202,7 +200,6 @@ def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
     #f = registration.fit_ThinPlateSpline_RotReg(src_cloud, target_cloud, bend_coef = 0.05, rot_coefs = [.1,.1,0], scale_coef=1)
     #f = registration.tps_rpm(src_cloud, target_cloud, f_init=None, n_iter=1000, rad_init=.05, rad_final=0.0001, reg_init=10, reg_final=0.01)
 
-
     plotter = PlotterInit()
 
     def plot_cb(f):
@@ -211,15 +208,16 @@ def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
             plotter.request(req)
 
     f, info = registration.tps_rpm_regrot_multi(src_cloud, target_cloud,
-                                    n_iter=10,
+                                    n_iter=15,
                                     n_iter_powell_init=50, n_iter_powell_final=50,
                                     rad_init=0.3, rad_final=0.0001, 
                                     bend_init=10, bend_final=0.00001,
                                     rot_init = (0.01,0.01,0.0025), rot_final=(0.00001,0.00001,0.0000025),
                                     #scale_init=1, scale_final=0.0000001,
-                                    scale_init=10, scale_final=0.00001,
+                                    scale_init=10, scale_final=0.0000001,
                                     return_full=True,
                                     plotting_cb=plot_cb)
+
     
     plot_requests = plot_warping(f.transform_points,np.concatenate(src_cloud), np.concatenate(target_cloud), fine)
     for req in plot_requests:
@@ -228,7 +226,7 @@ def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
     return f
 
 
-def fit_and_plot(file_num, draw_plinks=True, fine=False):
+def fit_and_plot(file_num, draw_plinks=True, fine=False, add_indices=False, scale_down=500.0):
     """
     params:
       - draw_plinks [bool] : draws a line b/w each point in the source-cloud and its transformed location.
@@ -239,6 +237,13 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False):
     warped (src---> target) : green
     """
     (sc, tc) = load_clouds(file_num)
+    
+    if add_indices:
+        for c in sc:
+            c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+        for c in tc:
+            c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+    
     test_tps_rpm_regrot_multi(sc, tc, fine=fine)
 
 
