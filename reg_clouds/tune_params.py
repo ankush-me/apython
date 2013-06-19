@@ -192,7 +192,7 @@ def plot_warping(f, src, target, fine=True, draw_plinks=True):
 
 
 
-def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
+def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coords=False, scale_down=500.0):
     """
     FINE: set to TRUE if you want to plot a very fine grid.
     """
@@ -203,30 +203,46 @@ def test_tps_rpm_regrot_multi(src_cloud, target_cloud, fine=False):
     plotter = PlotterInit()
 
     def plot_cb(f):
-        plot_requests = plot_warping(f.transform_points, np.concatenate(src_cloud), np.concatenate(target_cloud), fine)
+        plot_requests = plot_warping(f.transform_points, np.concatenate(src_clouds), np.concatenate(target_clouds), fine)
         for req in plot_requests:
             plotter.request(req)
 
-    f, info = registration.tps_rpm_regrot_multi(src_cloud, target_cloud,
+
+    x_aug = {}
+    y_aug = {}
+    if augment_coords:
+        for i,c in enumerate(src_clouds):
+            x_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+        for i,c in enumerate(target_clouds):
+            y_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+#         for c in src_clouds:
+#             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+#         for c in target_clouds:
+#             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+
+
+
+    
+    f, info = registration.tps_rpm_regrot_multi(src_clouds, target_clouds,
+                                    x_aug=x_aug, y_aug=y_aug,
                                     n_iter=15,
                                     n_iter_powell_init=50, n_iter_powell_final=50,
                                     rad_init=0.3, rad_final=0.0001, 
                                     bend_init=10, bend_final=0.00001,
                                     rot_init = (0.01,0.01,0.0025), rot_final=(0.00001,0.00001,0.0000025),
-                                    #scale_init=1, scale_final=0.0000001,
                                     scale_init=10, scale_final=0.0000001,
                                     return_full=True,
                                     plotting_cb=plot_cb)
 
     
-    plot_requests = plot_warping(f.transform_points,np.concatenate(src_cloud), np.concatenate(target_cloud), fine)
+    plot_requests = plot_warping(f.transform_points,np.concatenate(src_clouds), np.concatenate(target_clouds), fine)
     for req in plot_requests:
         plotter.request(req)
-        
+
     return f
 
 
-def fit_and_plot(file_num, draw_plinks=True, fine=False, add_indices=False, scale_down=500.0):
+def fit_and_plot(file_num, draw_plinks=True, fine=False, augment_coords=False):
     """
     params:
       - draw_plinks [bool] : draws a line b/w each point in the source-cloud and its transformed location.
@@ -237,14 +253,8 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False, add_indices=False, scal
     warped (src---> target) : green
     """
     (sc, tc) = load_clouds(file_num)
-    
-    if add_indices:
-        for c in sc:
-            c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-        for c in tc:
-            c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-    
-    test_tps_rpm_regrot_multi(sc, tc, fine=fine)
+
+    test_tps_rpm_regrot_multi(sc, tc, fine=fine, augment_coords=augment_coords)
 
 
 def rot_reg(src, target):    

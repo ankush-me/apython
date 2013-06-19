@@ -97,7 +97,9 @@ class PlotterInit(object):
 
 if __name__=='__main__':
 
-    # example usage below:
+    # Example usage below:
+    #=====================
+    
     p = PlotterInit()
     parity = False
 
