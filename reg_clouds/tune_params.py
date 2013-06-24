@@ -148,7 +148,6 @@ def load_clouds(file_num=109):
 
 
 
-
 def plot_warping(f, src, target, fine=True, draw_plinks=True):
     """
     function to plot the warping as defined by the function f.
@@ -163,8 +162,8 @@ def plot_warping(f, src, target, fine=True, draw_plinks=True):
     print '\tmins : ', np.min(src, axis=0)
     print '\tmaxes : ', np.max(src, axis=0)
 
-    mins  = mean + [-0.2, -0.2, 0]
-    maxes = mean + [0.2, 0.2, 0.01]
+    mins  = mean + [-0.1, -0.1, -0.01]
+    maxes = mean + [0.1, 0.1, 0.01]
 
     grid_lines = []
     if fine:
@@ -210,10 +209,14 @@ def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coo
     x_aug = {}
     y_aug = {}
     if augment_coords:
-        for i,c in enumerate(src_clouds):
-            x_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-        for i,c in enumerate(target_clouds):
-            y_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+          for i,c in enumerate(src_clouds):
+              x_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+          for i,c in enumerate(target_clouds):
+              y_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+#           for c in src_clouds:
+#               c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+#           for c in target_clouds:
+#               c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
 
 
     f, info = registration.tps_rpm_regrot_multi(src_clouds, target_clouds,

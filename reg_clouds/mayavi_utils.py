@@ -43,3 +43,22 @@ def plot_lines(lines, color=(1,1,1), line_width=1, opacity=0.4):
     r,g,b = color
     color = 255*np.array((r,g,b, 1))
     surf.module_manager.scalar_lut_manager.lut.table = np.array([color, color])
+    
+    
+def plot_transform(T, size=0.1):
+    """
+    plots the transform represented by
+    the 4x4 transformation matrix T.
+    """
+    assert T.shape==(4,4)
+    origin     = np.c_[T[0:3,3]]
+    origin_mat = np.repeat(origin, 3, axis=1).T
+    mlab.quiver3d(np.c_[origin[0]], np.c_[origin[1]], np.c_[origin[2]],
+                  np.c_[T[0,0]], np.c_[T[1,0]], np.c_[T[2,0]], color=(1,0,0), line_width=3, scale_factor=size)
+    mlab.quiver3d(np.c_[origin[0]], np.c_[origin[1]], np.c_[origin[2]],
+                  np.c_[T[0,1]], np.c_[T[1,1]], np.c_[T[2,1]], color=(0,1,0), line_width=3, scale_factor=size)
+    mlab.quiver3d(np.c_[origin[0]], np.c_[origin[1]], np.c_[origin[2]],
+                  np.c_[T[0,2]], np.c_[T[1,2]], np.c_[T[2,2]], color=(0,0,1), line_width=3, scale_factor=size)
+
+
+    
