@@ -8,12 +8,12 @@ import time
 
 
 
-def gen_custom_request(func_name, **kwargs):
+def gen_custom_request(func_name, *args, **kwargs):
     """
     Returns a plotting request for custom functions.
     func_name should be in : {'points', 'lines'}
     """
-    req = {'type':'custom', 'func':func_name, 'data':kwargs}
+    req = {'type':'custom', 'func':func_name, 'data':(args, kwargs)}
     return cPickle.dumps(req)
 
 
@@ -40,7 +40,8 @@ class Plotter():
     """
     def __init__(self, in_pipe):
         self.request_pipe  = in_pipe
-        self.plotting_funcs = {'lines': mayavi_utils.plot_lines}
+        self.plotting_funcs = {'lines': mayavi_utils.plot_lines,
+                               'transform':mayavi_utils.plot_transform}
 
     def check_and_process(self):
         if self.request_pipe.poll():
@@ -51,19 +52,18 @@ class Plotter():
     def process_request(self, req):
         if req['type'] == 'custom':
             try:
-                f = self.plotting_funcs[req['func']]
-                kwargs = req['data']
-                f(**kwargs)
+                f = self.plotting_funcs[req['func']]        
             except KeyError:
                 print colorize("No custom plotting function with name : %s. Ignoring plot request."%req['func'], "red")
 
         elif req['type'] == 'mlab':
             try:
                 f = getattr(mlab, req['func'])
-                args, kwargs = req['data']
-                f(*args, **kwargs)
             except KeyError:
                 print colorize("No mlab plotting function with name : %s. Ignoring plot request."%req['func'], "red")
+        
+        args, kwargs = req['data']
+        f(*args, **kwargs)
 
 
 @mlab.show
@@ -99,7 +99,7 @@ if __name__=='__main__':
 
     # Example usage below:
     #=====================
-    
+
     p = PlotterInit()
     parity = False
 

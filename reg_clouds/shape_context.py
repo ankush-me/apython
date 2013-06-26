@@ -9,7 +9,7 @@ import os.path as osp
 import scipy.io as sio
 
 
-def shape_context(p, mean_dist=None, r_inner=1./8, r_outer=2., nbins_r=5, nbins_theta=12, nbins_phi=6, outliers=None, sparse=False):
+def shape_context(p, median_dist=None, r_inner=1./8, r_outer=2., nbins_r=5, nbins_theta=12, nbins_phi=6, outliers=None, sparse=False):
     """
     Computes the shape-context log-polar histograms at each point in p -- the point cloud.
     p is a Nxd matrix of points.
@@ -19,16 +19,17 @@ def shape_context(p, mean_dist=None, r_inner=1./8, r_outer=2., nbins_r=5, nbins_
 
     p_mean = np.mean(p, axis=0)
     p_centered = p - p_mean
-    _,_,v      = np.linalg.svd(p_centered, full_matrices=True)
-    #pt_nd      = np.dot(p_centered, v)
-    pt_nd      = p_centered
+    T = pca_frame(p)
+    R = T[0:3,0:3]
+    pt_nd      = np.dot(p_centered, R)
+    #pt_nd      = p_centered
 
     # compute the coordinates : r,theta, phi
     dists    = ssd.pdist(pt_nd, 'euclidean')
-    if mean_dist==None:
-        mean_dist   = np.mean(dists)
-        dists       = dists/mean_dist
-    dists_nn        = ssd.squareform(dists)
+    if median_dist==None:
+        median_dist = np.median(dists) 
+    dists       = dists/median_dist
+    dists_nn    = ssd.squareform(dists)
 
     # theta_nn are in [0,2pi)
     dx_nn, dy_nn, dz_nn  = pt_nd.T[:,None,:]-pt_nd.T[:,:,None]
@@ -71,7 +72,7 @@ def plot_shape_context(index, sc):
     pass
 
 
-def shape_distance(sc1, sc2):
+def shape_distance(sc1, sc2, do_fft=False):
     """
     Computes the Chi-squared distance b/w shape-contexts sc1 and sc2.
     returns an sc1.len x sc2.len distance matrix
@@ -92,9 +93,13 @@ def shape_distance(sc1, sc2):
     sc1_norm = sc1_flat/ np.c_[eps + np.sum(sc1_flat, axis=1)]
     sc2_norm = sc2_flat/ np.c_[eps + np.sum(sc2_flat, axis=1)]
     
+    if do_fft: # gives rotational invariance
+        sc1_norm = np.abs(np.fft.fft2(sc1_norm))
+        sc2_norm = np.abs(np.fft.fft2(sc2_norm))
+
     sc1_norm = sc1_norm[:,None,:]
     sc2_norm = sc2_norm[None,:,:]
-    
+
     dist = 0.5* np.sum( (sc1_norm - sc2_norm)**2 / (sc1_norm + sc2_norm + eps) , axis=2)
 
     assert dist.shape==(n1,n2), "distance metric shape mis-match. Error in code."
@@ -143,28 +148,32 @@ def save_cloud_as_mat(file_num):
     data_dir    = '/home/ankush/sandbox/bulletsim/src/tests/ravens/recorded/'
     clouds_file = 'clouds_%d.npz'%file_num 
     fname = osp.join(data_dir, clouds_file)
-    
+
     clouds = np.load(fname)
     tclouds = [clouds[n] for n in clouds.files if n.startswith('target')]
     tcloud  = tclouds[0][:,0:2]
-    
+
     sclouds = [clouds[n] for n in clouds.files if n.startswith('src')]
     scloud  = sclouds[0][:,0:2]
-    
+
     sio.savemat('reg_data_%d.mat'%file_num, {'x':scloud, 'y':tcloud})
 
 
 def test_shape_context(file_num):
     (src, target) = load_clouds(file_num)
     src = src[0]
-    target = target[0]
     
-    sc_src = shape_context(src)
-    sc_target = shape_context(target)
+    th = np.pi/6
+    from numpy import sin, cos
+    R = np.array([[cos(th), -sin(th), 0],
+                 [sin(th), cos(th), 0],
+                 [0,0,1]])
+    target = np.dot(target[0], R.T)
     
-    dists = shape_distance(sc_src, sc_target)
+    sc_src    = shape_context(src)
+    sc_target = shape_context(target)  
+    dists    = shape_distance(sc_src, sc_target)
     argmins  = np.argmin(dists, axis=1)
-
 
     # plot stuff
     plotter = PlotterInit()
@@ -175,11 +184,42 @@ def test_shape_context(file_num):
     plinks = [np.c_[src[i,:], target[ti,:]].T for i,ti in enumerate(argmins)]
     plot_reqs.append(gen_custom_request('lines', lines=plinks, color=(0,1,0), line_width=2, opacity=1))
     
+    Ts = pca_frame(src)
+    Tt = pca_frame(target)
+    plot_reqs.append(gen_custom_request('transform', Ts, size=0.01))
+    plot_reqs.append(gen_custom_request('transform', Tt, size=0.01))
+
     for req in plot_reqs:
         plotter.request(req)
-        
-        
-        
+
+       
+def pca_frame(p, tol=1e-6):
+    """
+    Given an Nx3 matrix of points, it returns
+    the frame defined by the principal components
+    of the data.
+    """
+    N,d = p.shape
+    p_mean = np.mean(p, axis=0)
+    p_centered = p - p_mean
+    _,s,v      = np.linalg.svd(p_centered, full_matrices=True)
+    R   = v.T
+
+    # make right-handed
+    if not np.allclose(np.cross(R[:,0], R[:,1]), R[:,2]):
+        R[:,2] *= -1
+
+    # a hack to get consistent transforms
+    if s[2] < tol and R[2,2] < 0:
+        R[:,1] *= -1
+        R[:,2] *= -1
+
+    T = np.eye(d+1)
+    T[0:d,0:d] = R
+    T[0:d,d]   = p_mean
+    return T
+
+    
 def test_shape_context2(file_num):
     """
     Exports the shape_context matrix summed along two of the bins
