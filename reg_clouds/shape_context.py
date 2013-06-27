@@ -21,8 +21,8 @@ def shape_context(p, median_dist=None, r_inner=1./8, r_outer=2., nbins_r=5, nbin
     p_centered = p - p_mean
     T = pca_frame(p)
     R = T[0:3,0:3]
-    pt_nd      = np.dot(p_centered, R)
-    #pt_nd      = p_centered
+    #pt_nd      = np.dot(p_centered, R)
+    pt_nd      = p_centered
 
     # compute the coordinates : r,theta, phi
     dists    = ssd.pdist(pt_nd, 'euclidean')
@@ -77,30 +77,42 @@ def shape_distance(sc1, sc2, do_fft=False):
     Computes the Chi-squared distance b/w shape-contexts sc1 and sc2.
     returns an sc1.len x sc2.len distance matrix
     """
-    assert sc1.ndim==sc2.ndim==4, "shape contexts are not four-dimensionsal"    
+    assert sc1.ndim==sc2.ndim==4, "shape contexts are not four-dimensional"    
 
     n1, r1, t1, p1 = sc1.shape
     n2, r2, t2, p2 = sc2.shape
     
     assert r1==r2 and t1==t2 and p1==p2, "shape-contexts have different bin-sizes."
-    
-    # flatten the shape-contexts:
-    sc1_flat = sc1.reshape((n1, r1*t1*p1))
-    sc2_flat = sc2.reshape((n2, r2*t2*p2))
 
     # normalize
     eps = np.spacing(1)
-    sc1_norm = sc1_flat/ np.c_[eps + np.sum(sc1_flat, axis=1)]
-    sc2_norm = sc2_flat/ np.c_[eps + np.sum(sc2_flat, axis=1)]
-    
-    if do_fft: # gives rotational invariance
-        sc1_norm = np.abs(np.fft.fft2(sc1_norm))
-        sc2_norm = np.abs(np.fft.fft2(sc2_norm))
+    sc1_sum = eps + np.c_[np.sum(np.sum(np.sum(sc1, axis=3), axis=2), axis=1)][:,:,None,None]
+    sc2_sum = eps + np.c_[np.sum(np.sum(np.sum(sc2, axis=3), axis=2), axis=1)][:,:,None,None]
+    sc1_norm = sc1/ sc1_sum
+    sc2_norm = sc2/ sc2_sum
 
-    sc1_norm = sc1_norm[:,None,:]
-    sc2_norm = sc2_norm[None,:,:]
+    # gives rotational invariance
+    if do_fft:
+        sc1_fft = np.zeros(sc1.shape)
+        sc2_fft = np.zeros(sc2.shape) 
 
-    dist = 0.5* np.sum( (sc1_norm - sc2_norm)**2 / (sc1_norm + sc2_norm + eps) , axis=2)
+        for i in xrange(n1):
+            sc1_fft[i,:,:,:] = np.abs(np.fft.fftn(sc1_norm[i,:,:,:]))
+
+        for i in xrange(n2):
+            sc2_fft[i,:,:,:] = np.abs(np.fft.fftn(sc2_norm[i,:,:,:]))
+
+        sc1_norm = sc1_fft
+        sc2_norm = sc2_fft
+
+    # flatten the shape-contexts:
+    sc1_flat = sc1_norm.reshape((n1, r1*t1*p1))
+    sc2_flat = sc2_norm.reshape((n2, r2*t2*p2))
+
+    # compute the histogram distance
+    sc1_flat = sc1_flat[:,None,:]
+    sc2_flat = sc2_flat[None,:,:]
+    dist = 0.5* np.sum( (sc1_flat - sc2_flat)**2 / (sc1_flat + sc2_flat + eps) , axis=2)
 
     assert dist.shape==(n1,n2), "distance metric shape mis-match. Error in code."
     return dist
@@ -115,7 +127,6 @@ def gen_rand_data(N=200, s=1.):
     noise = s*np.c_[noise[:,0]/10, noise[:,0]/5, noise[:,0]/8]
     p = p + noise    
 
-    #mlab.points3d(p[:,0], p[:,1], p[:,2], scale_factor=0.1)
     return p
     
 
@@ -163,16 +174,16 @@ def test_shape_context(file_num):
     (src, target) = load_clouds(file_num)
     src = src[0]
     
-    th = np.pi/6
+    th = np.pi*0
     from numpy import sin, cos
     R = np.array([[cos(th), -sin(th), 0],
                  [sin(th), cos(th), 0],
                  [0,0,1]])
     target = np.dot(target[0], R.T)
-    
+
     sc_src    = shape_context(src)
     sc_target = shape_context(target)  
-    dists    = shape_distance(sc_src, sc_target)
+    dists    = shape_distance(sc_src, sc_target, True)
     argmins  = np.argmin(dists, axis=1)
 
     # plot stuff
