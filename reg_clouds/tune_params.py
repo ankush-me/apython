@@ -9,6 +9,7 @@ from mayavi import mlab
 from mayavi_utils import plot_lines
 from mayavi_plotter import *
 
+from sqpregpy import *
 
 def gen_grid(f, mins, maxes, ncoarse=10, nfine=30):
     """
@@ -209,14 +210,14 @@ def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coo
     x_aug = {}
     y_aug = {}
     if augment_coords:
-          for i,c in enumerate(src_clouds):
-              x_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-          for i,c in enumerate(target_clouds):
-              y_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-#           for c in src_clouds:
-#               c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-#           for c in target_clouds:
-#               c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+        for i,c in enumerate(src_clouds):
+            x_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+        for i,c in enumerate(target_clouds):
+           y_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+#         for c in src_clouds:
+#             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
+#         for c in target_clouds:
+#             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
 
 
     f, info = registration.tps_rpm_regrot_multi(src_clouds, target_clouds,
@@ -229,6 +230,8 @@ def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coo
                                     scale_init=10, scale_final=0.0000001,
                                     return_full=True,
                                     plotting_cb=plot_cb, plotter=plotter)
+
+    print "(src, w, aff, trans) : ", f.x_na.shape, f.w_ng.shape, f.lin_ag.shape, f.trans_g.shape
 
     
     plot_requests = plot_warping(f.transform_points,np.concatenate(src_clouds), np.concatenate(target_clouds), fine)
@@ -253,6 +256,58 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False, augment_coords=False):
     test_tps_rpm_regrot_multi(sc, tc, fine=fine, augment_coords=augment_coords)
 
 
+
+def test_sqpregrot(src, target,  bend_coeff=0.00001,  rot_coeff=np.array((0.00001,0.00001,0.0000025)), scale_coeff=0.0000001, corres_coeff=0.0001):
+    A, B, c = fit_tps_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, corres_coeff, True)
+    c = c.flatten()
+    print A.shape, B.shape, c.shape
+
+    f = registration.ThinPlateSpline()
+    f.x_na = src
+    f.w_ng = A
+    f.lin_ag = B
+    f.trans_g = c.T
+    
+    plotter = PlotterInit()
+    plot_requests = plot_warping(f.transform_points,src, target, True)
+    for req in plot_requests:
+        plotter.request(req)
+
+
+def fit_and_plot_sqp(file_num, draw_plinks=True, fine=False):
+    (sc, tc) = load_clouds(file_num)
+    sc = sc[0]
+    tc = tc[0]
+    test_sqpregrot(sc, tc)
+
+
 def rot_reg(src, target):    
     f = registration.fit_ThinPlateSpline_RotReg(src, target, bend_coef = .1, rot_coefs = [.1,.1,0], scale_coef=1)
     print colorize("Linear part of the warping function is:\n", "blue"), f.lin_ag
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
