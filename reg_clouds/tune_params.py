@@ -257,7 +257,7 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False, augment_coords=False):
 
 
 
-def test_sqpregrot(src, target,  bend_coeff=0.00001,  rot_coeff=np.array((0.00001,0.00001,0.0000025)), scale_coeff=0.0000001, corres_coeff=0.0001):
+def test_sqpregrot(src, target,  bend_coeff=0.001,  rot_coeff=np.array((0.001,0.001,0.00025)), scale_coeff=0.001, corres_coeff=0.001):
     A, B, c = fit_tps_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, corres_coeff, True)
     c = c.flatten()
     print A.shape, B.shape, c.shape
@@ -266,7 +266,7 @@ def test_sqpregrot(src, target,  bend_coeff=0.00001,  rot_coeff=np.array((0.0000
     f.x_na = src
     f.w_ng = A
     f.lin_ag = B
-    f.trans_g = c.T
+    f.trans_g = c
     
     plotter = PlotterInit()
     plot_requests = plot_warping(f.transform_points,src, target, True)
@@ -284,30 +284,3 @@ def fit_and_plot_sqp(file_num, draw_plinks=True, fine=False):
 def rot_reg(src, target):    
     f = registration.fit_ThinPlateSpline_RotReg(src, target, bend_coef = .1, rot_coefs = [.1,.1,0], scale_coef=1)
     print colorize("Linear part of the warping function is:\n", "blue"), f.lin_ag
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
