@@ -219,7 +219,7 @@ def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coo
 #         for c in target_clouds:
 #             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
 
-
+    start = time.time()
     f, info = registration.tps_rpm_regrot_multi(src_clouds, target_clouds,
                                     x_aug=x_aug, y_aug=y_aug,
                                     n_iter=15,
@@ -228,12 +228,14 @@ def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coo
                                     bend_init=10, bend_final=0.00001,
                                     rot_init = (0.01,0.01,0.0025), rot_final=(0.00001,0.00001,0.0000025),
                                     scale_init=10, scale_final=0.0000001,
-                                    return_full=True,
-                                    plotting_cb=plot_cb, plotter=plotter)
+                                    return_full=True)
+                                    #plotting_cb=plot_cb, plotter=plotter)
 
     print "(src, w, aff, trans) : ", f.x_na.shape, f.w_ng.shape, f.lin_ag.shape, f.trans_g.shape
 
-    
+    end = time.time()
+    print colorize("Iterative : took : %f seconds."%(end - start), "red", True)
+
     plot_requests = plot_warping(f.transform_points,np.concatenate(src_clouds), np.concatenate(target_clouds), fine)
     for req in plot_requests:
         plotter.request(req)
@@ -252,19 +254,26 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False, augment_coords=False):
     warped (src---> target) : green
     """
     (sc, tc) = load_clouds(file_num)
-
     test_tps_rpm_regrot_multi(sc, tc, fine=fine, augment_coords=augment_coords)
 
 
 
-def test_sqpregrot(src, target,
-                   bend_coeff=0.001,
+# def test_sqpregrot(src, target,
+#                    bend_coeff=1,
+#                    rot_coeff=np.array((0.01,0.01,0.0025)),
+#                    scale_coeff=0.1,
+#                    corres_coeff=.01):
+#     
+def test_sqpregrot (src, target,
+                   bend_coeff=0.05,
                    rot_coeff=np.array((0.001,0.001,0.00025)),
                    scale_coeff=0.001,
                    corres_coeff=0.001):
-    
-    #A, B, c = fit_reg_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, corres_coeff, True, False)
-    A, B, c = fit_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, True, False)
+
+    start = time.time()
+    A, B, c = fit_reg_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, corres_coeff, True, False)
+    #A, B, c = fit_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, True, False)
+
     c = c.flatten()
     print A.shape, B.shape, c.shape
 
@@ -273,6 +282,10 @@ def test_sqpregrot(src, target,
     f.w_ng = A
     f.lin_ag = B
     f.trans_g = c
+    
+    end = time.time()
+    print colorize("SQP : took : %f seconds."%(end - start), "red", True)
+
     
     plotter = PlotterInit()
     plot_requests = plot_warping(f.transform_points,src, target, True)
