@@ -265,10 +265,10 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False, augment_coords=False):
 #                    corres_coeff=.01):
 #     
 def test_sqpregrot (src, target,
-                   bend_coeff=0.05,
+                   bend_coeff=0.02,
                    rot_coeff=np.array((0.001,0.001,0.00025)),
-                   scale_coeff=0.001,
-                   corres_coeff=0.001):
+                   scale_coeff=0.01,
+                   corres_coeff=0.0005):
 
     start = time.time()
     A, B, c = fit_reg_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, corres_coeff, True, False)
@@ -293,10 +293,16 @@ def test_sqpregrot (src, target,
         plotter.request(req)
 
 
-def fit_and_plot_sqp(file_num, draw_plinks=True, fine=False):
+def fit_and_plot_sqp(file_num, draw_plinks=True, fine=False, augment=False):
     (sc, tc) = load_clouds(file_num)
     sc = sc[0]
     tc = tc[0]
+    
+    if augment:
+        scale_down = 500.0
+        sc[:,2] = np.abs(np.arange(len(sc)) - len(sc)/2)/scale_down
+        tc[:,2] = np.abs(np.arange(len(tc)) - len(tc)/2)/scale_down
+
     test_sqpregrot(sc, tc)
 
 
