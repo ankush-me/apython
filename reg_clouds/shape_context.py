@@ -9,7 +9,12 @@ import os.path as osp
 import scipy.io as sio
 
 
-def shape_context(p, median_dist=None, r_inner=1./8, r_outer=2., nbins_r=5, nbins_theta=12, nbins_phi=6, outliers=None, sparse=False):
+def shape_context(p, median_dist=None,
+                  r_inner=1./8, r_outer=2.,
+                  nbins_r=5, nbins_theta=12, nbins_phi=6,
+                  outliers=None,
+                  make2d=True,
+                  sparse=False):
     """
     Computes the shape-context log-polar histograms at each point in p -- the point cloud.
     p is a Nxd matrix of points.
@@ -21,8 +26,8 @@ def shape_context(p, median_dist=None, r_inner=1./8, r_outer=2., nbins_r=5, nbin
     p_centered = p - p_mean
     T = pca_frame(p)
     R = T[0:3,0:3]
-    #pt_nd      = np.dot(p_centered, R)
-    pt_nd      = p_centered
+    pt_nd      = np.dot(p_centered, R)
+    #pt_nd      = p_centered
 
     # compute the coordinates : r,theta, phi
     dists    = ssd.pdist(pt_nd, 'euclidean')
@@ -53,6 +58,9 @@ def shape_context(p, median_dist=None, r_inner=1./8, r_outer=2., nbins_r=5, nbin
     for i in xrange(N):
         hist, edges = np.histogramdd(combined_3nn[:,i,:].T, bins=[r_edges, theta_edges, phi_edges])
         sc_nrtp[i,:,:,:] = hist
+
+    if make2d:
+        sc_nrtp = sc_nrtp.reshape(N, nbins_r*nbins_theta*nbins_phi)
 
     if sparse: # convert to sparse representation
         sc_nrtp = sc_nrtp.reshape(N, nbins_r*nbins_theta*nbins_phi)
@@ -183,8 +191,8 @@ def test_shape_context(file_num):
 
     sc_src    = shape_context(src)
     sc_target = shape_context(target)  
-    dists    = shape_distance(sc_src, sc_target, True)
-    argmins  = np.argmin(dists, axis=1)
+    dists     = shape_distance(sc_src, sc_target, False)
+    argmins   = np.argmin(dists, axis=1)
 
     # plot stuff
     plotter = PlotterInit()

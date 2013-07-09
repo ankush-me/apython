@@ -22,7 +22,7 @@ def gen_grid(f, mins, maxes, ncoarse=10, nfine=30):
     xcoarse = np.linspace(xmin, xmax, ncoarse)
     ycoarse = np.linspace(ymin, ymax, ncoarse)
     zcoarse = np.linspace(zmin, zmax, ncoarse)
-      
+
     xfine = np.linspace(xmin, xmax, nfine)
     yfine = np.linspace(ymin, ymax, nfine)
     zfine = np.linspace(zmin, zmax, nfine)
@@ -273,9 +273,7 @@ def test_sqpregrot (src, target,
     start = time.time()
     A, B, c = fit_reg_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, corres_coeff, True, False)
     #A, B, c = fit_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, True, False)
-
     c = c.flatten()
-    print A.shape, B.shape, c.shape
 
     f = registration.ThinPlateSpline()
     f.x_na = src
@@ -285,7 +283,6 @@ def test_sqpregrot (src, target,
     
     end = time.time()
     print colorize("SQP : took : %f seconds."%(end - start), "red", True)
-
     
     plotter = PlotterInit()
     plot_requests = plot_warping(f.transform_points,src, target, True)
