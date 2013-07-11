@@ -1,16 +1,17 @@
+import numpy as np
+
 from rapprentice import tps
 from rapprentice import registration
 from rapprentice.colorize import *
-from easyInput.slider import easyInput
+
 import os.path as osp
-import numpy as np
 import time
 from mayavi import mlab
-
 from mayavi_utils import plot_lines
 from mayavi_plotter import *
 
-from sqpregpy import *
+from shape_context import *
+
 
 def gen_grid(f, mins, maxes, ncoarse=10, nfine=30):
     """
@@ -60,9 +61,7 @@ def gen_grid(f, mins, maxes, ncoarse=10, nfine=30):
 def gen_grid2(f, mins, maxes, xres = .01, yres = .01, zres = .01):
     """
     generate 3d grid and warps it using the function f.
-    
     The grid is based on the resolution specified.
-    
     """    
     xmin, ymin, zmin = mins
     xmax, ymax, zmax = maxes
@@ -105,25 +104,6 @@ def gen_grid2(f, mins, maxes, xres = .01, yres = .01, zres = .01):
     return lines
 
 
-def test_plotlines():
-    def identity(xyz):
-        return xyz
-    lines = gen_grid(identity, [0,0,0], [1,1,1])
-    plot_lines(lines)
-
-
-def test_plot3d():
-    x  = np.linspace(0,1,101)
-    yz = np.zeros([101,2])
-    p  = np.c_[x,yz]
-    from numpy import cos, sin
-    a = 0.1
-    R = np.array([[cos(a), sin(a),0],[-sin(a), cos(a), 0],[0,0,1]])
-    p = p.dot(R.T)
-    l = mlab.plot3d(p[:,0], p[:,1], p[:,2], tube_radius=None)
-    return l
-
-
 def load_clouds(file_num=109):
     """
     Loads the point-clouds saved by surgical sim.    
@@ -147,7 +127,6 @@ def load_clouds(file_num=109):
     tclouds = [clouds[n] for n in clouds.files if n.startswith('target')]
     sclouds = [clouds[n] for n in clouds.files if n.startswith('src')]
     return (sclouds, tclouds)
-
 
 
 def plot_warping(f, src, target, fine=True, draw_plinks=True):
@@ -192,14 +171,12 @@ def plot_warping(f, src, target, fine=True, draw_plinks=True):
 
 
 
-def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coords=False, scale_down=500.0):
+def test_tps_mix(src_clouds, target_clouds, fine=False, augment_coords=False, scale_down=500.0):
     """
     FINE: set to TRUE if you want to plot a very fine grid.
     """
     print colorize("Fitting tps-rpm ...", 'green', True)
-    #f = registration.fit_ThinPlateSpline_RotReg(src_cloud, target_cloud, bend_coef = 0.05, rot_coefs = [.1,.1,0], scale_coef=1)
-    #f = registration.tps_rpm(src_cloud, target_cloud, f_init=None, n_iter=1000, rad_init=.05, rad_final=0.0001, reg_init=10, reg_final=0.01)
-
+    
     plotter = PlotterInit()
 
     def plot_cb(f):
@@ -207,38 +184,24 @@ def test_tps_rpm_regrot_multi(src_clouds, target_clouds, fine=False, augment_coo
         for req in plot_requests:
             plotter.request(req)
 
-    x_aug = {}
-    y_aug = {}
-    if augment_coords:
-        for i,c in enumerate(src_clouds):
-            x_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-        for i,c in enumerate(target_clouds):
-           y_aug[i] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-#         for c in src_clouds:
-#             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-#         for c in target_clouds:
-#             c[:,2] = np.abs(np.arange(len(c)) - len(c)/2)/scale_down
-
     start = time.time()
-    f = registration.tps_rpm_regrot_multi(src_clouds, target_clouds,
-                                          x_aug=x_aug, y_aug=y_aug,
-                                          n_iter=15,
-                                          n_iter_powell_init=50, n_iter_powell_final=50,
-                                          rad_init=0.3, rad_final=0.000001, # if testing for box-holes points, rad_final=0.00001
-                                          bend_init=100, bend_final=0.0000001,
-                                          rot_init = (0.001,0.001,0.00025), rot_final=(0.00001,0.00001,0.0000025),
-                                          scale_init=10, scale_final=0.0000001,
-                                          return_full=False,
-                                          plotting_cb=plot_cb, plotter=plotter)
-    
+    f, info = tps_sc_multi(src_clouds, target_clouds,
+                           n_iter=20,
+                           rad_init=0.3, rad_final=0.0001, # if testing for box-holes points, rad_final=0.00001
+                           bend_init=10, bend_final=0.000005,
+                           rot_init = (0.01,0.01,0.0025), rot_final=(0.00001,0.00001,0.0000025),
+                           scale_init=50, scale_final=0.00001,
+                           return_full=True,
+                           plotting_cb=plot_cb, plotter=plotter)
+
     print "(src, w, aff, trans) : ", f.x_na.shape, f.w_ng.shape, f.lin_ag.shape, f.trans_g.shape
 
     end = time.time()
     print colorize("Iterative : took : %f seconds."%(end - start), "red", True)
 
-    #plot_requests = plot_warping(f.transform_points,np.concatenate(src_clouds), np.concatenate(target_clouds), fine)
-    #for req in plot_requests:
-    #    plotter.request(req)
+    plot_requests = plot_warping(f.transform_points,np.concatenate(src_clouds), np.concatenate(target_clouds), fine)
+    for req in plot_requests:
+        plotter.request(req)
 
     return f
 
@@ -254,104 +217,130 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False, augment_coords=False):
     warped (src---> target) : green
     """
     (sc, tc) = load_clouds(file_num)
-    test_tps_rpm_regrot_multi(sc, tc, fine=fine, augment_coords=augment_coords)
+    test_tps_mix(sc, tc, fine=fine, augment_coords=augment_coords)
 
 
-def fit_and_plot_n(n=100, regrot=True, draw_plinks=True, fine=False, augment_coords=False):
+def calc_corr_matrix(x_nd, y_md, r, p, dmult=None, n_iter=20):
     """
-    function for timing.
+    sinkhorn procedure. see tps-rpm paper
     """
-    sc = [np.random.randn(n,3)/100.]
-    tc = [np.random.randn(n,3)/100.]
+    n = x_nd.shape[0]
+    m = y_md.shape[0]
     
-    start = time.time()
-    if regrot:
-        test_tps_rpm_regrot_multi(sc, tc, fine=fine, augment_coords=augment_coords)
+    if dmult==None:
+        dmult = np.ones((n,m))
+    
+    dist_nm = ssd.cdist(x_nd, y_md,'euclidean')
+    prob_nm = np.exp(-dist_nm / r)
+    prob_nm *= dmult
+
+    prob_nm_orig = prob_nm.copy()
+    for _ in xrange(n_iter):
+        prob_nm /= (p*((n+0.)/m) + prob_nm.sum(axis=0))[None,:]  # cols sum to n/m
+        prob_nm /= (p + prob_nm.sum(axis=1))[:,None] # rows sum to 1
+
+    prob_nm = np.sqrt(prob_nm_orig * prob_nm)
+    prob_nm /= (p + prob_nm.sum(axis=1))[:,None] # rows sum to 1
+    return prob_nm
+
+
+def calc_dist_matrix(x_n3, y_m3, r, p=.2, tech='exp'):
+    """
+    Combines the shape-context histogram distances with euclidean distances.
+    """
+    assert x_n3.ndim==y_m3.ndim==2, "Distance matrix error: inputs are not two dimensional"
+    assert x_n3.shape[1]==y_m3.shape[1]==3, "Distance matrix error: pts are not three dimensional"
+    
+    dsc_nm = shape_distance2d(shape_context(x_n3), shape_context(y_m3))
+    #dsc_nm = np.reciprocal(np.square(dsc_nm))
+    dsc_nm = np.exp(-dsc_nm)
+    #return calc_corr_matrix(x_n3, y_m3, r, p, dmult=None)
+    return calc_corr_matrix(x_n3, y_m3, r, p, dmult=dsc_nm)
+
+
+def tps_sc_multi(x_clouds, y_clouds,
+                 n_iter = 100,
+                 bend_init = 0.05, bend_final = .0001, 
+                 rot_init = (0.1,0.1,0.025), rot_final=(0.001,0.001,0.00025),
+                 scale_init=1, scale_final=0.001, 
+                 rad_init = .5, rad_final = .0005,
+                 verbose=False, f_init = None, return_full = False,
+                 plotting_cb=None, plotter=None):
+    """
+    Combines the shape-context distances with tps-rpm.
+    """  
+
+    assert len(x_clouds)==len(y_clouds), "Different number of point-clouds in source and target."
+
+    #flatten the list of point clouds into one big point cloud
+    combined_x = np.concatenate(x_clouds) 
+    combined_y = np.concatenate(y_clouds)
+
+    # concatenate the clouds into one big cloud
+    _,d  = combined_x.shape
+
+    regs     = registration.loglinspace(bend_init, bend_final, n_iter)
+    rads     = registration.loglinspace(rad_init, rad_final, n_iter)
+    scales   = registration.loglinspace(scale_init, scale_final, n_iter)
+    rots     = registration.loglinspace_arr(rot_init, rot_final, n_iter)
+
+    # initialize the function f.
+    if f_init is not None: 
+        f = f_init  
     else:
-        registration.tps_rpm(sc[0], tc[0])
-    end = time.time()
-    print colorize("It took : %f seconds."%(end - start), "red", True)
+        f         = registration.ThinPlateSpline(d)
+        f.trans_g = np.median(combined_y,axis=0) - np.median(combined_x,axis=0)
 
-    
+    # iterate b/w calculating correspondences and fitting the transformation.
+    for i in xrange(n_iter):
+        target_pts   = []
+        good_inds    = []
+        wt           = []
 
-# def test_sqpregrot(src, target,
-#                    bend_coeff=1,
-#                    rot_coeff=np.array((0.01,0.01,0.0025)),
-#                    scale_coeff=0.1,
-#                    corres_coeff=.01):
-#     
+        for j in xrange(len(x_clouds)): #process a pair of point-clouds
+            x_nd = x_clouds[j]
+            y_md = y_clouds[j]
 
-def test_sqp_just_fit (src, target,
-                   bend_coeff=0.00001,
-                   rot_coeff=np.array((0.005,0.005,0.000025)),
-                   scale_coeff=0.0001):
+            assert x_nd.ndim==y_md.ndim==2, "tps_rpm_reg_rot_multi : Point clouds are not two dimensional arrays"
 
-    start = time.time()
-    A, B, c = fit_sqp(10*src, 10*target, rot_coeff, scale_coeff, bend_coeff, False, False)
-    c = c.flatten()
-    c *= 0.1
+            xwarped_nd = f.transform_points(x_nd)
 
-    f = registration.ThinPlateSpline()
-    f.x_na = src
-    f.w_ng = A
-    f.lin_ag = B
-    f.trans_g = c
-    
-    end = time.time()
-    print colorize("JUST FIT SQP : took : %f seconds."%(end - start), "red", True)
-    
-    plotter = PlotterInit()
-    plot_requests = plot_warping(f.transform_points,src, target, True)
-    for req in plot_requests:
-        plotter.request(req)
+            corr_nm = calc_dist_matrix(xwarped_nd, y_md, r=rads[i], p=.2)
 
+            wt_n = corr_nm.sum(axis=1) # gives the row-wise sum of the corr_nm matrix
+            goodn = wt_n > 0.
+            targ_Nd = np.dot(corr_nm[goodn, :]/wt_n[goodn][:,None], y_md) # calculate the average points based on softmatching
 
-def test_sqpregrot (src, target,
-                   bend_coeff=0.001,
-                   rot_coeff=np.array((0.0001,0.0001,0.000025)),
-                   scale_coeff=0.0001,
-                   corres_coeff=10):
+            target_pts.append(targ_Nd)
+            good_inds.append(goodn)  
+            wt.append(wt_n[goodn])
 
-    start = time.time()
-    A, B, c = fit_reg_sqp(src, target, rot_coeff, scale_coeff, bend_coeff, corres_coeff, True, False)
-    c = c.flatten()
-    #c *= 0.1
+        target_pts = np.concatenate(target_pts)
+        good_inds  = np.concatenate(good_inds)
+        source_pts = combined_x[good_inds]
+        wt         = np.concatenate(wt)
 
-    f = registration.ThinPlateSpline()
-    f.x_na = src
-    f.w_ng = A
-    f.lin_ag = B
-    f.trans_g = c
-    
-    end = time.time()
-    print colorize("SQP : took : %f seconds."%(end - start), "red", True)
-    
-    plotter = PlotterInit()
-    plot_requests = plot_warping(f.transform_points,src, target, True)
-    for req in plot_requests:
-        plotter.request(req)
+        assert len(target_pts)==len(source_pts)==len(wt), "Lengths are not equal. Error!"
+        f      = registration.fit_ThinPlateSpline(source_pts, target_pts, bend_coef = regs[i], wt_n = wt_n[good_inds], rot_coef = 10*regs[i])
 
+        mscore = registration.match_score(source_pts, target_pts)
+        tscore = tps.tps_cost(f.lin_ag, f.trans_g, f.w_ng, source_pts, target_pts, regs[-1])
+        print colorize("\ttps-mix : iter : %d | fit distance : "%i, "red") , colorize("%g"%mscore, "green"), colorize(" | tps score: %g"%tscore, "blue")
 
-def fit_and_plot_sqp(file_num, justFit=False, draw_plinks=True, fine=False, augment=False):
-    (sc, tc) = load_clouds(file_num)
-    sc = sc[0]
-    tc = tc[0]
-    
-    if augment:
-        scale_down = 500.0
-        sc[:,2] = np.abs(np.arange(len(sc)) - len(sc)/2)/scale_down
-        tc[:,2] = np.abs(np.arange(len(tc)) - len(tc)/2)/scale_down
+        if plotting_cb and i%5==0:
+            plotting_cb(f)
 
-    if justFit:
-        test_sqp_just_fit(sc, tc)
+        # just plots the "target_pts" : the matched up points found by the correspondences.
+        if plotter:
+            plotter.request(gen_mlab_request(mlab.points3d, target_pts[:,0], target_pts[:,1], target_pts[:,2], color=(1,1,0), scale_factor=0.001))
+
+        # return if source and target match up well
+        if tscore < 1e-6:
+            break
+
+    if return_full:
+        info = {}
+        info["cost"] = tps.tps_cost(f.lin_ag, f.trans_g, f.w_ng, source_pts, target_pts, regs[-1])
+        return f, info
     else:
-        test_sqpregrot(sc, tc)
-
-
-    
-
-
-
-def rot_reg(src, target):    
-    f = registration.fit_ThinPlateSpline_RotReg(src, target, bend_coef = .1, rot_coefs = [.1,.1,0], scale_coef=1)
-    print colorize("Linear part of the warping function is:\n", "blue"), f.lin_ag   
+        return f

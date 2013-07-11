@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import scipy.spatial.distance as ssd
 from mayavi_utils import *
@@ -80,7 +81,38 @@ def plot_shape_context(index, sc):
     pass
 
 
-def shape_distance(sc1, sc2, do_fft=False):
+def shape_distance2d(sc1, sc2):
+    """
+    Computes the Chi-squared distance b/w shape-contexts sc1 and sc2.
+    returns an sc1.len x sc2.len distance matrix
+    """
+    assert sc1.ndim==sc2.ndim==2, "shape contexts are not two-dimensional"    
+
+    n1, b1 = sc1.shape
+    n2, b2 = sc2.shape
+
+    assert b1==b2, "shape-contexts have different bin-sizes."
+
+    # normalize
+    eps = np.spacing(1)
+    sc1_sum = eps + np.sum(sc1, axis=1)
+    sc2_sum = eps + np.sum(sc2, axis=1)
+    sc1_norm = sc1/ sc1_sum[:,None]
+    sc2_norm = sc2/ sc2_sum[:,None]
+
+
+    # compute the histogram distance
+    sc1_norm = sc1_norm[:,None,:]
+    sc2_norm = sc2_norm[None,:,:]
+    dist = 0.5* np.sum( (sc1_norm - sc2_norm)**2 / (sc1_norm + sc2_norm + eps) , axis=2)
+
+    assert dist.shape==(n1,n2), "distance metric shape mis-match. Error in code."
+    return dist
+
+
+
+
+def shape_distance4d(sc1, sc2, do_fft=False):
     """
     Computes the Chi-squared distance b/w shape-contexts sc1 and sc2.
     returns an sc1.len x sc2.len distance matrix
@@ -191,7 +223,7 @@ def test_shape_context(file_num):
 
     sc_src    = shape_context(src)
     sc_target = shape_context(target)  
-    dists     = shape_distance(sc_src, sc_target, False)
+    dists     = shape_distance2d(sc_src, sc_target)
     argmins   = np.argmin(dists, axis=1)
 
     # plot stuff
