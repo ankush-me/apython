@@ -11,7 +11,7 @@ from mayavi_utils import plot_lines
 from mayavi_plotter import *
 
 from shape_context import *
-
+from dtw.warp import *
 
 def gen_grid(f, mins, maxes, ncoarse=10, nfine=30):
     """
@@ -219,6 +219,45 @@ def fit_and_plot(file_num, draw_plinks=True, fine=False, augment_coords=False):
     (sc, tc) = load_clouds(file_num)
     test_tps_mix(sc, tc, fine=fine, augment_coords=augment_coords)
 
+
+def fit_and_plot_dtw(file_num, draw_plinks=True, fine=False, augment_coords=False):
+    """
+    params:
+      - draw_plinks [bool] : draws a line b/w each point in the source-cloud and its transformed location.
+
+    does tps-rpm on first pair of clouds in file_num .npz file and then plots the grid and src and target clouds.
+    src cloud     : red
+    target clouds : blue
+    warped (src---> target) : green
+    """
+    (sc, tc) = load_clouds(file_num)
+    sc = sc[0]
+    tc = tc[0]
+    
+    sc_src    = shape_context(sc)
+    sc_target = shape_context(tc)  
+    dists     = shape_distance2d(sc_src, sc_target)
+    dtw_match = dtw_path(dtw_cumm_mat(dists))
+
+    # plot stuff
+    plotter = PlotterInit()
+    plot_reqs = []
+    plot_reqs.append(gen_mlab_request(mlab.points3d, sc[:,0], sc[:,1], sc[:,2], color=(1,0,0), scale_factor=0.001))
+    plot_reqs.append(gen_mlab_request(mlab.points3d, tc[:,0], tc[:,1], tc[:,2], color=(0,0,1), scale_factor=0.001))
+    
+    si, ti = np.nonzero(dtw_match)
+    plinks = [np.c_[sc[si[i],:], tc[ti[i],:]].T for i in xrange(len(si))]
+    plot_reqs.append(gen_custom_request('lines', lines=plinks, color=(0,1,0), line_width=2, opacity=1))
+
+    Ts = pca_frame(sc)
+    Tt = pca_frame(tc)
+    plot_reqs.append(gen_custom_request('transform', Ts, size=0.01))
+    plot_reqs.append(gen_custom_request('transform', Tt, size=0.01))
+
+    for req in plot_reqs:
+        plotter.request(req)
+            
+    
 
 def calc_corr_matrix(x_nd, y_md, r, p, dmult=None, n_iter=20):
     """

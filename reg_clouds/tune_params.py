@@ -287,15 +287,17 @@ def test_sqp_just_fit (src, target,
                    scale_coeff=0.0001):
 
     start = time.time()
-    A, B, c = fit_sqp(10*src, 10*target, rot_coeff, scale_coeff, bend_coeff, False, False)
-    c = c.flatten()
-    c *= 0.1
+#     A, B, c = fit_sqp(10*src, 10*target, np.ones((src.shape[0],1)), rot_coeff, scale_coeff, bend_coeff, False, False)
+#     c = c.flatten()
+#     c *= 0.1
+# 
+#     f = registration.ThinPlateSpline()
+#     f.x_na = src
+#     f.w_ng = A
+#     f.lin_ag = B
+#     f.trans_g = c
 
-    f = registration.ThinPlateSpline()
-    f.x_na = src
-    f.w_ng = A
-    f.lin_ag = B
-    f.trans_g = c
+    f = registration.fit_ThinPlateSpline(src, target, bend_coef=bend_coeff, rot_coef = 10*bend_coeff)
     
     end = time.time()
     print colorize("JUST FIT SQP : took : %f seconds."%(end - start), "red", True)
