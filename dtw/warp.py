@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse as ss
 
 def dtw_cumm_mat(c_mn):
     """
@@ -23,7 +24,7 @@ def dtw_path(cmat_mn):
     m,n = cmat_mn.shape
 
     nsteps =m+n-1  
-    dtw_path  = np.zeros(cmat_mn.shape) 
+    dtw_path  = ss.dok_matrix(cmat_mn.shape) 
     dtw_path[m-1,n-1] = 1
     
     pm,pn = m-1,n-1
@@ -50,7 +51,7 @@ def dtw_path(cmat_mn):
                 pm -= 1
     return dtw_path
     
-    
+
 if __name__=='__main__':
     cmat = np.ones((4,3))
     cmat[0,:] = 0

@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 
 from rapprentice import tps
@@ -69,7 +70,6 @@ def gen_grid2(f, mins, maxes, xres = .01, yres = .01, zres = .01):
     xcoarse = np.arange(xmin, xmax+xres/10., xres)
     ycoarse = np.arange(ymin, ymax+yres/10., yres)
     zcoarse = np.arange(zmin, zmax+zres/10., zres)
-    
     
     xfine = np.arange(xmin, xmax+xres/10., xres/5.)
     yfine = np.arange(ymin, ymax+yres/10., yres/5.)
@@ -145,6 +145,7 @@ def plot_warping(f, src, target, fine=True, draw_plinks=True):
 
     mins  = mean + [-0.1, -0.1, -0.01]
     maxes = mean + [0.1, 0.1, 0.01]
+
 
     grid_lines = []
     if fine:
@@ -236,8 +237,12 @@ def fit_and_plot_dtw(file_num, draw_plinks=True, fine=False, augment_coords=Fals
     
     sc_src    = shape_context(sc)
     sc_target = shape_context(tc)  
-    dists     = shape_distance2d(sc_src, sc_target)
+    sc_dist   = shape_distance2d(sc_src, sc_target)
+    sc_min_dist = np.min(sc_dist) + np.spacing(1.)
+    dists     = np.exp(sc_dist/sc_min_dist)
     dtw_match = dtw_path(dtw_cumm_mat(dists))
+    print dtw_match
+    raw_input()
 
     # plot stuff
     plotter = PlotterInit()
@@ -257,7 +262,73 @@ def fit_and_plot_dtw(file_num, draw_plinks=True, fine=False, augment_coords=Fals
     for req in plot_reqs:
         plotter.request(req)
             
+
+def tps_dtw(x_nd, y_md, n_iter = 100, bend_init=100, bend_final=.000001,
+            plotter = None, plot_cb = None):
     
+    regs = loglinspace(bend_init, bend_final, n_iter)
+    
+    src_nd  = x_nd
+    targ_md = y_md
+    sc_targ = shape_context(targ_md)
+    
+    for i in xrange(n_iter):
+        sc_src = shape_context(src_nd)
+        
+        # do DTW:
+        sc_dist   = shape_distance2d(sc_src, sc_targ)
+        #sc_min_dist = np.min(sc_dist) + np.spacing(1.)
+        #dists     = np.exp(sc_dist/sc_min_dist)
+        dtw_match = dtw_path(dtw_cumm_mat(sc_dist)).toarray()
+
+        dtw_rowsum = dtw_match.sum(axis=1)
+        dtw_match  = dtw_match/dtw_rowsum[:,None]      
+        tps_targ   = dtw_match.dot(targ_md)
+          
+        tps_src    = x_nd
+
+        # for each match, put an error-term:
+        #si, ti = np.nonzero(dtw_match)
+        #tps_src = src_nd[si,:]
+        #tps_targ = targ_md[ti,:]
+        
+        f = registration.fit_ThinPlateSpline(tps_src, tps_targ, bend_coef = regs[i], rot_coef = 10*regs[i])
+        src_nd = f.transform_points(x_nd)
+
+        
+        if plot_cb and i%5==0:
+            plot_cb(f)
+            si, ti = np.nonzero(dtw_match)
+            plinks = [np.c_[src_nd[si[id],:], targ_md[ti[id],:]].T for id in xrange(len(si))]
+            plotter.request(gen_custom_request('lines', lines=plinks, color=(1,0,1), line_width=2, opacity=1))
+            
+
+        if plotter:
+            plotter.request(gen_mlab_request(mlab.points3d, tps_targ[:,0], tps_targ[:,1], tps_targ[:,2], color=(1,1,0), scale_factor=0.001))
+ 
+    return f
+
+
+def test_tps_dtw(file_num, fine=False):
+    (sc, tc) = load_clouds(file_num)
+    x_nd = sc[0]
+    y_md = tc[0]
+    print colorize("Fitting tps-DTW ...", 'green', True)
+    plotter = PlotterInit()
+
+    def plot_cb(f):
+        plot_requests = plot_warping(f.transform_points, x_nd, y_md, fine)
+        for req in plot_requests:
+            plotter.request(req)
+
+    start = time.time()
+    f = tps_dtw(x_nd, y_md, plot_cb=plot_cb, plotter=plotter)
+    end = time.time()
+
+    print colorize("TPS-DTW : took : %f seconds."%(end - start), "red", True)
+    return f
+
+
 
 def calc_corr_matrix(x_nd, y_md, r, p, dmult=None, n_iter=20):
     """
