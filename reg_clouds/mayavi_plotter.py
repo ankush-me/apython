@@ -3,9 +3,10 @@ import mayavi_utils
 from rapprentice.colorize import *
 from mayavi import mlab
 from multiprocessing import Process,Pipe
+from threading import Lock
 import cPickle
 import time
-
+from MyTimer import MyTimer
 
 
 def gen_custom_request(func_name, *args, **kwargs):
@@ -95,8 +96,10 @@ class PlotterInit(object):
 
         #process key-callbacks from mayavi scenes:        
         self.key_cb = {}
+        self.lock = Lock()
+        self.abc = list()
         from pyface.timer.api import Timer
-        self.keycb_timer = Timer(50, self.__key_callback_server__)
+        self.keycb_timer = MyTimer(0.05, self.__key_callback_server__)
         
         # start the mayavi process
         self.mayavi_process = Process(target=create_mayavi, args=(self.pipe_mayavi,))
@@ -105,23 +108,27 @@ class PlotterInit(object):
     def request(self, plot_request):
         self.pipe_this.send(plot_request)
 
-    def register_key_call_back(self, key, f_cb):
+    def register_key_callback(self, kbkey, f_cb):
         """
         NOTE : Currently callbacks can only be registered for SMALL keys 'a' --> 'z'
         """
-        self.key_cb[key] = f_cb
+        self.lock.acquire()
+        self.key_cb[kbkey] = f_cb
+        self.abc.append('1111')
+        print self.abc
+        print self.key_cb
+        self.lock.release()
+        
 
     def __key_callback_server__(self):
         if self.pipe_this.poll():
-            key_press = self.pipe_this.recv()
-            if key_press:
-                event, key_char =  cPickle.loads(key_press)
-                if event=="KEY_DOWN":
-                    try:
-                        self.key_cb[key_char]()
-                    except KeyError:
-                        pass
-
+           key_press = self.pipe_this.recv()
+           if key_press:
+               event, key_char =  cPickle.loads(key_press)
+               if event=="KEY_DOWN" and self.key_cb.has_key(key_char):
+                   self.lock.acquire()
+                   self.key_cb[key_char]()
+                   self.lock.release()
 
 if __name__=='__main__':
 

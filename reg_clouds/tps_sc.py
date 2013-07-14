@@ -13,6 +13,7 @@ from mayavi_plotter import *
 
 from shape_context import *
 from dtw.warp import *
+from MyTimer import MyTimer
 
 def gen_grid(f, mins, maxes, ncoarse=10, nfine=30):
     """
@@ -263,7 +264,7 @@ def fit_and_plot_dtw(file_num, draw_plinks=True, fine=False, augment_coords=Fals
         plotter.request(req)
             
 
-def tps_dtw(x_nd, y_md, n_iter = 100, bend_init=100, bend_final=.000001,
+def tps_dtw(x_nd, y_md, n_iter = 10, bend_init=100, bend_final=.000001,
             plotter = None, plot_cb = None):
     
     regs = loglinspace(bend_init, bend_final, n_iter)
@@ -284,7 +285,7 @@ def tps_dtw(x_nd, y_md, n_iter = 100, bend_init=100, bend_final=.000001,
         dtw_rowsum = dtw_match.sum(axis=1)
         dtw_match  = dtw_match/dtw_rowsum[:,None]      
         tps_targ   = dtw_match.dot(targ_md)
-          
+
         tps_src    = x_nd
 
         # for each match, put an error-term:
@@ -305,9 +306,14 @@ def tps_dtw(x_nd, y_md, n_iter = 100, bend_init=100, bend_final=.000001,
 
         if plotter:
             plotter.request(gen_mlab_request(mlab.points3d, tps_targ[:,0], tps_targ[:,1], tps_targ[:,2], color=(1,1,0), scale_factor=0.001))
- 
+
+    def catch_key_callback():
+        print colorize("got key z", "green", True)
+
+    plotter.register_key_callback('z', catch_key_callback) 
     return f
 
+    
 
 def test_tps_dtw(file_num, fine=False):
     (sc, tc) = load_clouds(file_num)
@@ -315,6 +321,7 @@ def test_tps_dtw(file_num, fine=False):
     y_md = tc[0]
     print colorize("Fitting tps-DTW ...", 'green', True)
     plotter = PlotterInit()
+    
 
     def plot_cb(f):
         plot_requests = plot_warping(f.transform_points, x_nd, y_md, fine)
