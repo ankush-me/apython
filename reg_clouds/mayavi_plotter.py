@@ -68,11 +68,17 @@ class Plotter():
 
 @mlab.show
 def create_mayavi(pipe):
-    mlab.figure()
+    
+    def send_key_callback(widget, event):
+        "Send the key-presses to the process which created this mayavi viewer."
+        pipe.send(cPickle.dumps(("KEY_DOWN", widget.GetKeyCode())))
+
+    fig = mlab.figure()
+    fig.scene.interactor.add_observer("KeyPressEvent", send_key_callback)
     time.sleep(1)
 
     mayavi_app = Plotter(pipe)
-    
+
     from pyface.timer.api import Timer
     from mayavi.scripts import mayavi2
 
@@ -85,14 +91,36 @@ class PlotterInit(object):
     Initializes Mayavi in a new process.
     """
     def __init__(self):
-        self.mayavi_process  = None
-        (self.pipe_to_mayavi, self.pipe_from_mayavi) = Pipe()
+        (self.pipe_mayavi, self.pipe_this) = Pipe()
 
-        self.mayavi_process = Process(target=create_mayavi, args=(self.pipe_from_mayavi,))
+        #process key-callbacks from mayavi scenes:        
+        self.key_cb = {}
+        from pyface.timer.api import Timer
+        self.keycb_timer = Timer(50, self.__key_callback_server__)
+        
+        # start the mayavi process
+        self.mayavi_process = Process(target=create_mayavi, args=(self.pipe_mayavi,))
         self.mayavi_process.start()
 
     def request(self, plot_request):
-        self.pipe_to_mayavi.send(plot_request)
+        self.pipe_this.send(plot_request)
+
+    def register_key_call_back(self, key, f_cb):
+        """
+        NOTE : Currently callbacks can only be registered for SMALL keys 'a' --> 'z'
+        """
+        self.key_cb[key] = f_cb
+
+    def __key_callback_server__(self):
+        if self.pipe_this.poll():
+            key_press = self.pipe_this.recv()
+            if key_press:
+                event, key_char =  cPickle.loads(key_press)
+                if event=="KEY_DOWN":
+                    try:
+                        self.key_cb[key_char]()
+                    except KeyError:
+                        pass
 
 
 if __name__=='__main__':
