@@ -264,7 +264,7 @@ def fit_and_plot_dtw(file_num, draw_plinks=True, fine=False, augment_coords=Fals
         plotter.request(req)
             
 
-def tps_dtw(x_nd, y_md, n_iter = 10, bend_init=100, bend_final=.000001,
+def tps_dtw(x_nd, y_md, n_iter = 100, bend_init=100, bend_final=.000001,
             plotter = None, plot_cb = None):
     
     regs = loglinspace(bend_init, bend_final, n_iter)
@@ -278,9 +278,9 @@ def tps_dtw(x_nd, y_md, n_iter = 10, bend_init=100, bend_final=.000001,
         
         # do DTW:
         sc_dist   = shape_distance2d(sc_src, sc_targ)
-        #sc_min_dist = np.min(sc_dist) + np.spacing(1.)
-        #dists     = np.exp(sc_dist/sc_min_dist)
-        dtw_match = dtw_path(dtw_cumm_mat(sc_dist)).toarray()
+        sc_min_dist = np.min(sc_dist) + np.spacing(1.)
+        dists     = np.exp(sc_dist/sc_min_dist)
+        dtw_match = dtw_path(dtw_cumm_mat(dists)).toarray()
 
         dtw_rowsum = dtw_match.sum(axis=1)
         dtw_match  = dtw_match/dtw_rowsum[:,None]      
@@ -302,16 +302,16 @@ def tps_dtw(x_nd, y_md, n_iter = 10, bend_init=100, bend_final=.000001,
             si, ti = np.nonzero(dtw_match)
             plinks = [np.c_[src_nd[si[id],:], targ_md[ti[id],:]].T for id in xrange(len(si))]
             plotter.request(gen_custom_request('lines', lines=plinks, color=(1,0,1), line_width=2, opacity=1))
-            
+
 
         if plotter:
             plotter.request(gen_mlab_request(mlab.points3d, tps_targ[:,0], tps_targ[:,1], tps_targ[:,2], color=(1,1,0), scale_factor=0.001))
 
-    def catch_key_callback():
-        print colorize("got key z", "green", True)
 
-    plotter.register_key_callback('z', catch_key_callback) 
-    return f
+    info = {}
+    info['src_nd'] = src_nd
+    info['targ_md'] = targ_md
+    return f, info
 
     
 
@@ -321,18 +321,17 @@ def test_tps_dtw(file_num, fine=False):
     y_md = tc[0]
     print colorize("Fitting tps-DTW ...", 'green', True)
     plotter = PlotterInit()
-    
 
     def plot_cb(f):
         plot_requests = plot_warping(f.transform_points, x_nd, y_md, fine)
         for req in plot_requests:
             plotter.request(req)
 
-    start = time.time()
-    f = tps_dtw(x_nd, y_md, plot_cb=plot_cb, plotter=plotter)
+    start   = time.time()
+    f, info = tps_dtw(x_nd, y_md, plot_cb=plot_cb, plotter=plotter)
     end = time.time()
 
-    print colorize("TPS-DTW : took : %f seconds."%(end - start), "red", True)
+    print colorize("TPS-DTW : took : %f seconds."%(end - start), "red", True)    
     return f
 
 
