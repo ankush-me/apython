@@ -278,7 +278,7 @@ def tps_dtw(x_nd, y_md, n_iter = 100, bend_init=100, bend_final=.000001,
         
         # do DTW:
         sc_dist   = shape_distance2d(sc_src, sc_targ)
-        sc_min_dist = np.min(sc_dist) + np.spacing(1.)
+        sc_min_dist = np.min(sc_dist)
         dists     = np.exp(sc_dist/sc_min_dist)
         dtw_match = dtw_path(dtw_cumm_mat(dists)).toarray()
 
