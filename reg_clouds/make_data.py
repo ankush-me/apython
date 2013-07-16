@@ -2,13 +2,13 @@ from mayavi import mlab
 import numpy as np
 import os.path as osp
 
-def disp_pts(pts1, pts2, color1, color2):
+def disp_pts(pts1, pts2, color1=(1,0,0), color2=(0,1,0)):
     figure = mlab.gcf()
     mlab.clf()
     figure.scene.disable_render = True
 
-    pts1_glyphs = mlab.points3d(pts1[:,0], pts1[:,1], pts1[:,2], color=color1, resolution=20, scale_factor=0.001)
-    pts2_glyphs = mlab.points3d(pts2[:,0], pts2[:,1], pts2[:,2], color=color2, resolution=20, scale_factor=0.001)
+    pts1_glyphs   = mlab.points3d(pts1[:,0], pts1[:,1], pts1[:,2], color=color1, resolution=20, scale_factor=0.001)
+    pts2_glyphs   = mlab.points3d(pts2[:,0], pts2[:,1], pts2[:,2], color=color2, resolution=20, scale_factor=0.001)
     glyph_points1 = pts1_glyphs.glyph.glyph_source.glyph_source.output.points.to_array()
     glyph_points2 = pts2_glyphs.glyph.glyph_source.glyph_source.output.points.to_array()
 
@@ -35,7 +35,7 @@ def disp_pts(pts1, pts2, color1, color2):
 
 
     def picker_callback(picker):
-        """ Picker callback: this get called when on pick events.
+        """ Picker callback: this gets called during pick events.
         """
         if picker.actor in pts1_glyphs.actor.actors:
             point_id = picker.point_id/glyph_points1.shape[0]
