@@ -63,7 +63,7 @@ def disp_pts(pts1, pts2, color1, color2):
     mlab.show()
     
 def load_clouds(file_num=109):
-    data_dir    = '/home/ankush/sandbox/bulletsim/src/tests/ravens/recorded/'
+    data_dir    = '/home/ankush/sandbox/bulletsim/src/tests/ravens/recorded/rope_clouds'
     clouds_file = 'clouds_%d.npz'%file_num 
     fname = osp.join(data_dir, clouds_file)
 
@@ -79,6 +79,19 @@ def open_scene(file_num):
     target = tc[0]
     disp_pts(src, target, color1=(1,0,0), color2=(0,1,0))
     
+def open_scene3(run1, run2, seg1, seg2):
+    fpath = "/home/ankush/sandbox/bulletsim/src/tests/ravens/recorded/point_data/"
+    point_file_format = "run%d-seg%d-points.txt"
+
+    pts1fname = osp.join(fpath, point_file_format%(run1, seg1))
+    pts2fname = osp.join(fpath, point_file_format%(run2, seg2))
+    
+    sc  = np.loadtxt(pts1fname)
+    tc  = np.loadtxt(pts2fname)
+    disp_pts(sc, tc, color1=(1,0,0), color2=(0,1,0))
+
+    
+
 
 def open_scene2(fil1, fil2):
     data_dir    = '/home/ankush/sandbox/bulletsim/src/tests/ravens/recorded/scene_pts'
@@ -93,11 +106,11 @@ def save_npz_as_txt(file_num):
     sc, tc = load_clouds(file_num)
     sc = sc[0]
     tc = tc[0]
-    
+
     save_dir    = '/home/ankush/sandbox/bulletsim/src/tests/ravens/recorded/scene_pts/rope-tests'
     src_fname   = osp.join(save_dir, 'rope-%d-src.txt'%file_num)
-    targ_fname   = osp.join(save_dir, 'rope-%d-targ.txt'%file_num)
-    
+    targ_fname  = osp.join(save_dir, 'rope-%d-targ.txt'%file_num)
+
     np.savetxt(src_fname, sc)
     np.savetxt(targ_fname, tc)
 
